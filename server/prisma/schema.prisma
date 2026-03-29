@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  zoomUserId  String   @unique
+  displayName String
+  email       String?
+  role        String   // "host" or "student"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookmarks     Bookmark[]
+  meetings      Meeting[]      @relation("MeetingOwner")
+  recoveryPacks RecoveryPack[]
+}
+
+model Meeting {
+  id            String    @id @default(uuid())
+  zoomMeetingId String    @unique
+  title         String    @default("Untitled Meeting")
+  startTime     DateTime  @default(now())
+  endTime       DateTime?
+  status        String    @default("ongoing") // "ongoing", "completed"
+  ownerId       String
+  owner         User      @relation("MeetingOwner", fields: [ownerId], references: [id])
+
+  segments      TranscriptSegment[]
+  bookmarks     Bookmark[]
+  quizSets      QuizSet[]
+  recoveryPacks RecoveryPack[]
+}
+
+model TranscriptSegment {
+  id        String  @id @default(uuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id])
+  speaker   String
+  text      String
+  timestamp BigInt
+  seqNo     BigInt
+
+  @@unique([meetingId, seqNo])
+}
+
+model Bookmark {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  meetingId         String
+  meeting           Meeting  @relation(fields: [meetingId], references: [id])
+  timestamp         BigInt
+  topic             String
+  transcriptSnippet String?
+  isAuto            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+}
+
+model QuizSet {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  questions String   // JSON string: Array of { question, options, correctIndex, explanation }
+  createdAt DateTime @default(now())
+}
+
+model RecoveryPack {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  items     String   // JSON string: Array of { topic, explanation, practice, resource }
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,42 @@
+Zoom Momentum - March 9 Update
+================================
+
+WHAT'S DONE
+-----------
+- The foundation of the app is built — both the front-end (what users see) and the back-end (the server that powers everything) are up and running locally.
+- Professors and students see different screens when they open the app, based on their role in the Zoom meeting.
+- Login with Zoom accounts is working.
+- The real-time communication system between the professor's app and all student apps is built and tested — this is the backbone that every feature relies on.
+- The database is set up to store users, meetings, transcripts, bookmarks, and quizzes.
+- We have a simulated lecture transcript running locally so we can develop AI features without needing a live Zoom call every time.
+- We got access to Zoom's live transcript service (RTMS) for three team members.
+- All major tech decisions are locked in.
+
+WHAT'S LEFT
+-----------
+- The four core features (Polls, Trivia, Live Summary, Recovery Agent) have their plumbing in place but need the actual UI and AI logic wired up.
+- We need to connect to Zoom's real live transcript service (currently using simulated data).
+- Enhancements like late-joiner catch-up, auto-bookmarks, and post-class summaries still need to be built.
+- We need to set up cloud hosting so the app can run outside of our laptops.
+
+NEXT TASKS FOR THE TEAM
+------------------------
+1. Professor's Pulse (Polls) — Can start right now, no blockers
+   - Let professors generate AI-powered check-in polls during class
+   - Students see the poll, answer it, and everyone sees the results
+
+2. Warm-Up Arena (Trivia) — Can start right now, no blockers
+   - Pre-class trivia game with AI-generated questions from last lecture
+   - Students compete, scores update live, top 3 shown on leaderboard
+
+3. Live Transcript Integration — Unblocks the summary and recovery features
+   - Connect to Zoom's real-time transcript stream so the app can "listen" to the lecture
+   - Also need to get the rest of the team access to this Zoom service
+
+4. Live Anchor (Live Summary + Glossary) — Needs transcript integration first
+   - AI watches the lecture and creates a live-updating topic timeline for students
+   - Key terms and formulas get added to a searchable glossary automatically
+
+5. AWS Setup & Deployment
+   - Get cloud server access, set up the database, configure billing and team access
+   - Deploy the app so it's accessible beyond local development

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zoom Momentum</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-blue: #0044CC;
+      --grid-color: rgba(255, 255, 255, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--bg-blue);
+      color: #ffffff;
+      font-family: 'Space Mono', monospace;
+      overflow-x: hidden;
+    }
+    ::selection { background: #facc15; color: #1e3a5f; }
+
+    .font-serif-italic {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-weight: 400;
+    }
+
+    .bg-grid {
+      background-size: 60px 60px;
+      background-image:
+        linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+      mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+      -webkit-mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+    }
+
+    .pixel-art {
+      image-rendering: pixelated;
+      shape-rendering: crispEdges;
+    }
+
+    /* ─── Animations ─── */
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+    @keyframes float-medium {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+    @keyframes float-fast {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    .animate-float-slow { animation: float-slow 6s ease-in-out infinite; }
+    .animate-float-medium { animation: float-medium 5s ease-in-out infinite; }
+    .animate-float-fast { animation: float-fast 4s ease-in-out infinite; }
+    .delay-100 { animation-delay: 100ms; }
+    .delay-200 { animation-delay: 200ms; }
+    .delay-300 { animation-delay: 300ms; }
+    .delay-500 { animation-delay: 500ms; }
+    .delay-700 { animation-delay: 700ms; }
+    .delay-1000 { animation-delay: 1000ms; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 0.8; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .animate-fade-in-delay-1 {
+      opacity: 0;
+      animation: fadeIn 1s ease-out 1s forwards;
+    }
+    .animate-fade-in-delay-1-5 {
+      opacity: 0;
+      animation: fadeIn 1s ease-out 1.5s forwards;
+    }
+    .animate-bounce-custom { animation: bounce 1s ease-in-out infinite; }
+
+    .section-reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .section-reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Nav links ─── */
+    .nav-link {
+      position: relative;
+      padding: 4px 0;
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.875rem;
+      letter-spacing: 0.05em;
+      transition: color 0.3s;
+    }
+    .nav-link:hover { color: #fde047; }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px; width: 0;
+      background: #fde047;
+      transition: width 0.3s;
+    }
+    .nav-link:hover::after { width: 100%; }
+
+    /* ─── Hero ─── */
+    .hero {
+      position: relative;
+      height: 100vh;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-weight: 400;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: white;
+      display: flex;
+      align-items: flex-end;
+      user-select: none;
+      filter: drop-shadow(0 25px 25px rgba(0,0,0,0.15));
+      white-space: nowrap;
+    }
+    .hero-title .word-zoom {
+      font-size: 16vw;
+    }
+    .hero-title .word-momentum {
+      font-size: 16vw;
+    }
+    .hero-title .flower-spacer {
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      width: 3vw;
+      height: 13vw;
+      margin: 0 0.3vw;
+    }
+
+    /* ─── Feature cards ─── */
+    .feature-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      transition: all 0.3s ease;
+      cursor: default;
+    }
+    .feature-card:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(253,224,71,0.4);
+      transform: translateY(-4px);
+    }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 4px;
+      background: rgba(253,224,71,0.15);
+      border: 1px solid rgba(253,224,71,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 20px;
+      transition: transform 0.3s;
+    }
+    .feature-card:hover .feature-icon { transform: scale(1.08); }
+    .feature-tag {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 2px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      background: rgba(253,224,71,0.1);
+      color: #fde047;
+      border: 1px solid rgba(253,224,71,0.2);
+    }
+
+    /* ─── Step cards ─── */
+    .step-card {
+      position: relative;
+      padding: 32px 28px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .step-num {
+      display: block;
+      font-size: 3rem; font-weight: 700;
+      color: #fde047;
+      margin-bottom: 16px;
+      line-height: 1;
+    }
+
+    /* ─── Audience cards ─── */
+    .audience-card {
+      padding: clamp(1.5rem, 3vw, 2.5rem);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .audience-card h3 { color: #fde047; }
+    .check { color: #fde047; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+
+    /* ─── Tech pills ─── */
+    .tech-pill {
+      padding: 8px 18px;
+      border-radius: 2px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ─── CTA button ─── */
+    .cta-btn {
+      display: inline-block;
+      padding: 16px 40px;
+      border-radius: 2px;
+      background: #fde047;
+      color: #1e3a5f;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      font-family: 'Space Mono', monospace;
+      transition: all 0.2s;
+    }
+    .cta-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(253,224,71,0.3);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 768px) {
+      .hero-title .word-zoom,
+      .hero-title .word-momentum { font-size: 12vw; }
+      .hero-title .flower-spacer { width: 2.5vw; height: 10vw; }
+      .hero-nav-links { display: none !important; }
+      .hero-nav-social { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════ HERO SECTION ═══════════════════ -->
+  <section class="hero">
+    <div class="bg-grid" style="position:absolute;inset:0;z-index:0;pointer-events:none"></div>
+
+    <!-- Floating flowers -->
+    <div id="floating-flowers" style="position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none">
+      <div class="flower animate-float-medium delay-100" style="position:absolute;top:15%;left:10%;width:2rem;height:2rem;opacity:0.9">
+        <svg viewBox="0 0 12 16" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FF3333"/><rect x="4" y="8" width="4" height="4" fill="#FF3333"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FF3333"/><rect x="8" y="4" width="4" height="4" fill="#FF3333"/>
+          <rect x="4" y="4" width="4" height="4" fill="#FFD700"/><rect x="4" y="12" width="4" height="4" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-slow delay-500" style="position:absolute;top:8%;left:25%;width:1.5rem;height:1.5rem;opacity:0.8">
+        <svg viewBox="0 0 12 16" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FFD700"/><rect x="4" y="8" width="4" height="4" fill="#FFD700"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FFD700"/><rect x="8" y="4" width="4" height="4" fill="#FFD700"/>
+          <rect x="4" y="4" width="4" height="4" fill="#8B4513"/><rect x="4" y="12" width="4" height="4" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-fast delay-300" style="position:absolute;top:20%;right:15%;width:2.5rem;height:2.5rem;opacity:0.85">
+        <svg viewBox="0 0 12 20" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FF3333"/><rect x="4" y="8" width="4" height="4" fill="#FF3333"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FF3333"/><rect x="8" y="4" width="4" height="4" fill="#FF3333"/>
+          <rect x="4" y="4" width="4" height="4" fill="#FFD700"/><rect x="4" y="12" width="4" height="8" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-slow delay-700" style="position:absolute;bottom:20%;left:8%;width:1.75rem;height:1.75rem;opacity:0.8">
+        <svg viewBox="0 0 12 16" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FFD700"/><rect x="4" y="8" width="4" height="4" fill="#FFD700"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FFD700"/><rect x="8" y="4" width="4" height="4" fill="#FFD700"/>
+          <rect x="4" y="4" width="4" height="4" fill="#8B4513"/><rect x="4" y="12" width="4" height="4" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-medium delay-1000" style="position:absolute;bottom:25%;right:20%;width:2.25rem;height:2.25rem;opacity:0.9">
+        <svg viewBox="0 0 12 20" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FF3333"/><rect x="4" y="8" width="4" height="4" fill="#FF3333"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FF3333"/><rect x="8" y="4" width="4" height="4" fill="#FF3333"/>
+          <rect x="4" y="4" width="4" height="4" fill="#FFD700"/><rect x="4" y="12" width="4" height="8" fill="#228B22"/>
+          <rect x="8" y="14" width="2" height="2" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-slow" style="position:absolute;top:40%;left:10%;width:1rem;height:1rem;opacity:0.6">
+        <svg viewBox="0 0 12 16" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FFD700"/><rect x="4" y="8" width="4" height="4" fill="#FFD700"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FFD700"/><rect x="8" y="4" width="4" height="4" fill="#FFD700"/>
+          <rect x="4" y="4" width="4" height="4" fill="#8B4513"/><rect x="4" y="12" width="4" height="4" fill="#228B22"/>
+        </svg>
+      </div>
+      <div class="flower animate-float-slow delay-200" style="position:absolute;top:60%;right:8%;width:1.25rem;height:1.25rem;opacity:0.7">
+        <svg viewBox="0 0 12 16" class="pixel-art" style="width:100%;height:100%;filter:drop-shadow(0 4px 3px rgba(0,0,0,0.3))">
+          <rect x="4" y="0" width="4" height="4" fill="#FF3333"/><rect x="4" y="8" width="4" height="4" fill="#FF3333"/>
+          <rect x="0" y="4" width="4" height="4" fill="#FF3333"/><rect x="8" y="4" width="4" height="4" fill="#FF3333"/>
+          <rect x="4" y="4" width="4" height="4" fill="#FFD700"/><rect x="4" y="12" width="4" height="4" fill="#228B22"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav style="position:relative;z-index:50;width:100%;padding:2rem 3rem;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <span style="font-size:0.75rem;text-transform:uppercase;opacity:0.7;letter-spacing:0.2em">Zoom Momentum 2025</span>
+      </div>
+      <div class="hero-nav-links" style="flex:1;display:flex;justify-content:center;align-items:center;gap:clamp(1.5rem,4vw,3rem)">
+        <a href="#features" class="nav-link">FEATURES</a>
+        <a href="#how-it-works" class="nav-link">HOW IT WORKS</a>
+        <a href="#for-who" class="nav-link">FOR WHO</a>
+        <a href="#cta" class="nav-link">GET STARTED</a>
+      </div>
+      <div class="hero-nav-social" style="display:flex;gap:1rem;opacity:0.7">
+        <a href="#" class="nav-link">GH</a>
+        <a href="#" class="nav-link">ZM</a>
+      </div>
+    </nav>
+
+    <!-- Hero content -->
+    <main style="flex-grow:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;z-index:20;padding-bottom:5rem">
+      <div style="position:relative;cursor:default">
+        <!-- Line 1: "Zoom" -->
+        <h1 class="hero-title" style="justify-content:center">
+          <span class="word-zoom">Zoom</span>
+        </h1>
+        <!-- Line 2: flower + "Momentum" -->
+        <h1 class="hero-title" style="justify-content:center;margin-top:-1vw">
+          <span class="flower-spacer">
+            <svg viewBox="0 0 24 60" class="pixel-art" style="width:100%;height:100%;overflow:visible" preserveAspectRatio="xMidYMax">
+              <rect x="10" y="24" width="4" height="36" fill="#008000"/>
+              <rect x="6" y="44" width="4" height="4" fill="#006400"/>
+              <rect x="2" y="40" width="4" height="4" fill="#006400"/>
+              <rect x="14" y="36" width="4" height="4" fill="#006400"/>
+              <rect x="18" y="32" width="4" height="4" fill="#006400"/>
+              <rect x="8" y="8" width="8" height="8" fill="#5C3317"/>
+              <rect x="8" y="0" width="8" height="8" fill="#FFD700"/>
+              <rect x="8" y="16" width="8" height="8" fill="#FFD700"/>
+              <rect x="0" y="8" width="8" height="8" fill="#FFD700"/>
+              <rect x="16" y="8" width="8" height="8" fill="#FFD700"/>
+              <rect x="4" y="4" width="4" height="4" fill="#FFD700" opacity="0.8"/>
+              <rect x="16" y="4" width="4" height="4" fill="#FFD700" opacity="0.8"/>
+              <rect x="4" y="16" width="4" height="4" fill="#FFD700" opacity="0.8"/>
+              <rect x="16" y="16" width="4" height="4" fill="#FFD700" opacity="0.8"/>
+            </svg>
+          </span>
+          <span class="word-momentum">Momentum</span>
+        </h1>
+
+        <!-- Labels -->
+        <div class="animate-fade-in-delay-1" style="position:absolute;top:-2rem;left:1rem;font-size:clamp(0.65rem,1vw,0.875rem);font-weight:700;letter-spacing:0.1em">
+          IN-MEETING ENGAGEMENT
+        </div>
+        <div class="animate-fade-in-delay-1-5" style="position:absolute;bottom:-1.5rem;right:1rem;font-size:clamp(0.65rem,1vw,0.875rem);font-weight:700;letter-spacing:0.1em">
+          ZOOM APPS SDK
+        </div>
+      </div>
+    </main>
+
+    <!-- Hero footer -->
+    <footer style="position:absolute;bottom:0;left:0;width:100%;padding:1.5rem;display:flex;justify-content:space-between;align-items:flex-end;z-index:30;font-size:0.75rem;font-weight:700;opacity:0.6;letter-spacing:0.1em">
+      <div style="display:flex;flex-direction:column;gap:0.5rem">
+        <span>TRANSFORM VIRTUAL CLASSROOMS</span>
+        <span>2025</span>
+      </div>
+      <div class="animate-bounce-custom" style="margin-bottom:0.5rem">&#8595; SCROLL</div>
+      <div style="text-align:right;display:flex;flex-direction:column;gap:0.5rem">
+        <span>&copy; 2025 ZOOM MOMENTUM</span>
+        <span>ALL RIGHTS RESERVED</span>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ═══════════════════ FEATURES ═══════════════════ -->
+  <section id="features" style="position:relative;padding:clamp(4rem,10vw,8rem) clamp(1.5rem,5vw,4rem);max-width:1200px;margin:0 auto">
+    <div class="section-reveal" style="text-align:center;margin-bottom:64px">
+      <span style="display:inline-block;padding:6px 16px;border-radius:2px;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;color:#fde047;background:rgba(253,224,71,0.1);border:1px solid rgba(253,224,71,0.2);margin-bottom:20px">CORE FEATURES</span>
+      <h2 class="font-serif-italic" style="font-size:clamp(2rem,4vw,3.5rem);letter-spacing:-0.02em;margin-bottom:16px">Four Engines of Engagement</h2>
+      <p style="font-size:0.9rem;color:rgba(255,255,255,0.5);max-width:560px;margin:0 auto;line-height:1.7">Every feature designed to keep students focused, professors informed, and lectures alive.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+      <!-- Warm-Up Arena -->
+      <div class="feature-card section-reveal">
+        <div class="feature-icon">&#9889;</div>
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fde047">Warm-Up Arena</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:20px">AI-generated trivia from past lectures launches before class. A synchronized multiplayer game with a live leaderboard that primes students for what's ahead.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="feature-tag">PRE-LECTURE</span><span class="feature-tag">AI TRIVIA</span><span class="feature-tag">LEADERBOARD</span>
+        </div>
+      </div>
+      <!-- Live Anchor -->
+      <div class="feature-card section-reveal">
+        <div class="feature-icon">&#9875;</div>
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fde047">Live Anchor</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:20px">A shared, auto-updating timeline of topics and takeaways generated from live transcription. Students always know what's being discussed and can bookmark key moments.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="feature-tag">REAL-TIME</span><span class="feature-tag">RTMS</span><span class="feature-tag">BOOKMARKS</span>
+        </div>
+      </div>
+      <!-- Professor's Pulse -->
+      <div class="feature-card section-reveal">
+        <div class="feature-icon">&#128313;</div>
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fde047">Professor's Pulse</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:20px">One-tap AI-generated check-in polls that gauge comprehension in real time. Professors see results instantly and can adjust their teaching on the fly.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="feature-tag">POLLS</span><span class="feature-tag">AI-GENERATED</span><span class="feature-tag">INSTANT RESULTS</span>
+        </div>
+      </div>
+      <!-- Recovery Agent -->
+      <div class="feature-card section-reveal">
+        <div class="feature-icon">&#128218;</div>
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:12px;color:#fde047">Recovery Agent</h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.7;margin-bottom:20px">Students tap a bookmark button when lost. After class, AI builds a personalized remediation pack with explanations and practice problems — fully private.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="feature-tag">POST-CLASS</span><span class="feature-tag">PERSONALIZED</span><span class="feature-tag">PRIVACY-FIRST</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ HOW IT WORKS ═══════════════════ -->
+  <section id="how-it-works" style="position:relative;padding:clamp(4rem,10vw,8rem) clamp(1.5rem,5vw,4rem);background:linear-gradient(180deg,transparent 0%,rgba(0,0,0,0.1) 50%,transparent 100%)">
+    <div style="max-width:1200px;margin:0 auto">
+      <div class="section-reveal" style="text-align:center;margin-bottom:64px">
+        <span style="display:inline-block;padding:6px 16px;border-radius:2px;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;color:#fde047;background:rgba(253,224,71,0.1);border:1px solid rgba(253,224,71,0.2);margin-bottom:20px">HOW IT WORKS</span>
+        <h2 class="font-serif-italic" style="font-size:clamp(2rem,4vw,3.5rem);letter-spacing:-0.02em;margin-bottom:16px">From Install to Impact in Minutes</h2>
+        <p style="font-size:0.9rem;color:rgba(255,255,255,0.5);max-width:520px;margin:0 auto;line-height:1.7">No complex configuration. No learning curve. Just open Zoom and teach.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:32px">
+        <div class="step-card section-reveal">
+          <span class="step-num">01</span>
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px">Install the Zoom App</h3>
+          <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.7">Add Zoom Momentum from the Zoom Marketplace. It loads as an in-meeting side panel — zero setup for students.</p>
+        </div>
+        <div class="step-card section-reveal">
+          <span class="step-num">02</span>
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px">Start Your Lecture</h3>
+          <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.7">The Warm-Up Arena auto-launches trivia. Live Anchor begins building a shared timeline from the transcript stream.</p>
+        </div>
+        <div class="step-card section-reveal">
+          <span class="step-num">03</span>
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px">Engage in Real Time</h3>
+          <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.7">Professors trigger Pulse check-ins at any moment. Students bookmark confusion points. Everything syncs live.</p>
+        </div>
+        <div class="step-card section-reveal">
+          <span class="step-num">04</span>
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:10px">Learn After Class</h3>
+          <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.7">Recovery Agent generates personalized study packs from bookmarks. Students get targeted explanations and practice.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ FOR WHO ═══════════════════ -->
+  <section id="for-who" style="position:relative;padding:clamp(4rem,10vw,8rem) clamp(1.5rem,5vw,4rem);max-width:1200px;margin:0 auto">
+    <div class="section-reveal" style="text-align:center;margin-bottom:64px">
+      <span style="display:inline-block;padding:6px 16px;border-radius:2px;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;color:#fde047;background:rgba(253,224,71,0.1);border:1px solid rgba(253,224,71,0.2);margin-bottom:20px">BUILT FOR EDUCATION</span>
+      <h2 class="font-serif-italic" style="font-size:clamp(2rem,4vw,3.5rem);letter-spacing:-0.02em;margin-bottom:16px">Everyone Benefits</h2>
+      <p style="font-size:0.9rem;color:rgba(255,255,255,0.5);max-width:520px;margin:0 auto;line-height:1.7">Designed for the realities of virtual learning — not just another tool.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px">
+      <!-- Professors -->
+      <div class="audience-card section-reveal">
+        <div style="font-size:2.5rem;margin-bottom:16px">&#128105;&#8205;&#127979;</div>
+        <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:20px">Professors</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>One-tap AI polls to check comprehension</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>See engagement signals in real time</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>No extra prep work — AI handles content</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Works in any subject or class size</li>
+        </ul>
+      </div>
+      <!-- Students -->
+      <div class="audience-card section-reveal">
+        <div style="font-size:2.5rem;margin-bottom:16px">&#127891;</div>
+        <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:20px">Students</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Stay engaged with pre-lecture trivia</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Follow along with live topic timeline</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Bookmark moments of confusion privately</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Get AI study packs tailored to your gaps</li>
+        </ul>
+      </div>
+      <!-- Institutions -->
+      <div class="audience-card section-reveal">
+        <div style="font-size:2.5rem;margin-bottom:16px">&#127963;</div>
+        <h3 style="font-size:1.2rem;font-weight:700;margin-bottom:20px">Institutions</h3>
+        <ul style="list-style:none;padding:0">
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Runs inside Zoom — nothing else to license</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Privacy-first: no individual student tracking</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Works across departments and disciplines</li>
+          <li style="display:flex;align-items:flex-start;gap:12px;font-size:0.8rem;color:rgba(255,255,255,0.6);margin-bottom:14px;line-height:1.6"><span class="check">&#10003;</span>Measurable improvement in engagement</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ TECH STACK ═══════════════════ -->
+  <section style="padding:48px clamp(1.5rem,5vw,4rem);border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08)">
+    <div class="section-reveal" style="max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:clamp(16px,3vw,32px)">
+      <span style="font-size:0.75rem;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-right:8px">BUILT WITH</span>
+      <span class="tech-pill">React 18</span>
+      <span class="tech-pill">TypeScript</span>
+      <span class="tech-pill">Zoom Apps SDK</span>
+      <span class="tech-pill">Vite</span>
+      <span class="tech-pill">Express</span>
+      <span class="tech-pill">Prisma</span>
+      <span class="tech-pill">OpenAI</span>
+      <span class="tech-pill">RTMS</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ CTA ═══════════════════ -->
+  <section id="cta" style="position:relative;padding:clamp(4rem,10vw,8rem) clamp(1.5rem,5vw,4rem);text-align:center;overflow:hidden">
+    <div class="section-reveal" style="position:relative;z-index:10">
+      <h2 class="font-serif-italic" style="font-size:clamp(2rem,5vw,3.5rem);letter-spacing:-0.02em;margin-bottom:20px;line-height:1.1">Ready to Transform<br>Your Virtual Classroom?</h2>
+      <p style="font-size:0.9rem;color:rgba(255,255,255,0.5);max-width:480px;margin:0 auto 40px;line-height:1.7">Zoom Momentum is built for Zoom — install it once and every lecture becomes more engaging, more interactive, and more effective.</p>
+      <a href="#" class="cta-btn">GET STARTED WITH ZOOM MOMENTUM</a>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ FOOTER ═══════════════════ -->
+  <footer style="padding:40px clamp(1.5rem,5vw,4rem);border-top:1px solid rgba(255,255,255,0.08);max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;opacity:0.5">
+    <span>ZOOM MOMENTUM</span>
+    <span>BUILT WITH ZOOM APPS SDK &middot; POWERED BY AI</span>
+    <span>&copy; 2025 ZOOM MOMENTUM</span>
+  </footer>
+
+  <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
+  <script>
+    // Parallax flowers on mouse move
+    document.addEventListener('mousemove', function(e) {
+      var flowers = document.querySelectorAll('.flower');
+      var cx = window.innerWidth / 2;
+      var cy = window.innerHeight / 2;
+      var dx = (cx - e.pageX) / 50;
+      var dy = (cy - e.pageY) / 50;
+      flowers.forEach(function(el, i) {
+        var speed = (i + 1) * 0.5;
+        el.style.transform = 'translate(' + (dx * speed) + 'px, ' + (dy * speed) + 'px)';
+      });
+    });
+
+    // Scroll reveal
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.section-reveal').forEach(function(el) {
+      observer.observe(el);
+    });
+  </script>
+
+</body>
+</html>
