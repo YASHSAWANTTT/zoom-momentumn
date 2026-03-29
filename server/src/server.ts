@@ -92,6 +92,19 @@ if (fs.existsSync(clientDist)) {
   console.log(`[server] serving static files from ${clientDist}`);
 }
 
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[server] unhandled route error:', err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[server] uncaughtException:', err);
+});
+
 app.listen(config.port, '0.0.0.0', () => {
   console.log(`[server] listening on port ${config.port}`);
 });

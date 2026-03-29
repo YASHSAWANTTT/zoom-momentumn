@@ -37,54 +37,76 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
             senderId: participantId,
             senderRole: 'student',
           };
-          await zoomSdk.postMessage({ payload: JSON.stringify(requestMsg) });
+          try {
+            await zoomSdk.postMessage({ payload: JSON.stringify(requestMsg) });
+          } catch (postErr) {
+            console.error('[useMessaging] postMessage REQUEST_STATE failed:', postErr);
+          }
         }
       } catch (err) {
         console.error('[useMessaging] connect failed:', err);
       }
     };
 
-    // Listen for incoming messages
-    zoomSdk.onMessage((message) => {
-      try {
-        const raw = typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload);
-        const parsed: AppMessage = JSON.parse(raw);
+    try {
+      zoomSdk.onMessage((message) => {
+        try {
+          const raw = typeof message.payload === 'string' ? message.payload : JSON.stringify(message.payload);
+          const parsed: AppMessage = JSON.parse(raw);
 
-        // Host auto-responds to state requests
-        if (isHost && parsed.type === 'REQUEST_STATE' && stateRef.current) {
-          const fullState: AppMessage = {
-            type: 'FULL_STATE',
-            payload: stateRef.current,
-            seq: ++seqRef.current,
-            timestamp: Date.now(),
-            senderId: participantId,
-            senderRole: 'host',
-          };
-          zoomSdk.postMessage({ payload: JSON.stringify(fullState) });
-          return;
-        }
+          // Host auto-responds to state requests
+          if (isHost && parsed.type === 'REQUEST_STATE' && stateRef.current) {
+            const fullState: AppMessage = {
+              type: 'FULL_STATE',
+              payload: stateRef.current,
+              seq: ++seqRef.current,
+              timestamp: Date.now(),
+              senderId: participantId,
+              senderRole: 'host',
+            };
+            try {
+              zoomSdk.postMessage({ payload: JSON.stringify(fullState) });
+            } catch (postErr) {
+              console.error('[useMessaging] postMessage FULL_STATE failed:', postErr);
+            }
+            return;
+          }
 
-        onMessageRef.current(parsed);
-      } catch (err) {
-        console.error('[useMessaging] failed to parse message:', err);
-      }
-    });
-
-    // Host: detect new participants and auto-send state
-    if (isHost) {
-      zoomSdk.onParticipantChange(() => {
-        if (stateRef.current) {
-          const fullState: AppMessage = {
-            type: 'FULL_STATE',
-            payload: stateRef.current,
-            seq: ++seqRef.current,
-            timestamp: Date.now(),
-            senderId: participantId,
-            senderRole: 'host',
-          };
-          zoomSdk.postMessage({ payload: JSON.stringify(fullState) });
+          try {
+            onMessageRef.current(parsed);
+          } catch (handlerErr) {
+            console.error('[useMessaging] message handler threw:', handlerErr);
+          }
+        } catch (err) {
+          console.error('[useMessaging] failed to parse message:', err);
         }
       });
+    } catch (subErr) {
+      console.error('[useMessaging] onMessage subscribe failed:', subErr);
+    }
+
+    if (isHost) {
+      try {
+        zoomSdk.onParticipantChange(() => {
+          if (stateRef.current) {
+            const fullState: AppMessage = {
+              type: 'FULL_STATE',
+              payload: stateRef.current,
+              seq: ++seqRef.current,
+              timestamp: Date.now(),
+              senderId: participantId,
+              senderRole: 'host',
+            };
+            try {
+              zoomSdk.postMessage({ payload: JSON.stringify(fullState) });
+            } catch (postErr) {
+              console.error('[useMessaging] participant broadcast failed:', postErr);
+            }
+          }
+        });
+      } catch (subErr) {
+        console.error('[useMessaging] onParticipantChange subscribe failed:', subErr);
+      }
     }
 
     init();
@@ -105,7 +127,11 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
         senderId: participantId,
         senderRole: isHost ? 'host' : 'student',
       };
-      zoomSdk.postMessage({ payload: JSON.stringify(msg) });
+      try {
+        zoomSdk.postMessage({ payload: JSON.stringify(msg) });
+      } catch (e) {
+        console.error('[useMessaging] send postMessage failed:', e);
+      }
     },
     [isHost, participantId],
   );
@@ -122,7 +148,11 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
         senderId: participantId,
         senderRole: 'host',
       };
-      zoomSdk.postMessage({ payload: JSON.stringify(msg) });
+      try {
+        zoomSdk.postMessage({ payload: JSON.stringify(msg) });
+      } catch (e) {
+        console.error('[useMessaging] broadcast postMessage failed:', e);
+      }
     },
     [participantId],
   );
