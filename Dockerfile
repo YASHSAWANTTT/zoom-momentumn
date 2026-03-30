@@ -1,5 +1,5 @@
 # Zoom Momentum — single URL: Express serves Vite build + /api (Zoom Marketplace Home URL)
-# Requires runtime env: DATABASE_URL, DIRECT_URL, ZOOM_*, SESSION_SECRET, CLIENT_URL, etc.
+# Requires runtime env: DATABASE_URL, ZOOM_*, SESSION_SECRET, CLIENT_URL, etc.
 
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
@@ -14,7 +14,6 @@ COPY . .
 # Prisma client types must exist before `tsc` (server imports Bookmark, etc.)
 WORKDIR /app/server
 RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" \
-    DIRECT_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" \
     npx prisma generate
 WORKDIR /app
 RUN npm run build
@@ -31,5 +30,4 @@ COPY --from=build /app/server/prisma ./server/prisma
 COPY --from=build /app/server/package.json ./server/
 WORKDIR /app/server
 EXPOSE 3001
-# DIRECT_URL defaults to DATABASE_URL so `prisma migrate` works when only one URL is set (e.g. Railway).
-CMD ["sh", "-c", "export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && node dist/server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

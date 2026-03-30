@@ -16,7 +16,7 @@ Set these on your host (Railway, Render, Fly, EC2, etc.). Copy from [`.env.examp
 | `PORT` | Usually set automatically by the platform (often `3001` or dynamic) |
 | `CLIENT_URL` | **`https://YOUR-PUBLIC-URL`** (same as the app URL users open — no trailing path) |
 | `ZOOM_REDIRECT_URL` | `https://YOUR-PUBLIC-URL/api/auth/callback` |
-| `DATABASE_URL` / `DIRECT_URL` | Neon pooled + direct URLs |
+| `DATABASE_URL` | PostgreSQL connection string (Neon, Railway Postgres, etc.) |
 | `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` | Marketplace app |
 | `ZOOM_SECRET_TOKEN` | Webhook secret token |
 | `SESSION_SECRET` | Random string |

@@ -5,11 +5,6 @@
 import '../config.js';
 import { PrismaClient } from '@prisma/client';
 
-// Neon often provides pooled + direct URLs; hosts like Railway may only set DATABASE_URL.
-if (!process.env.DIRECT_URL?.trim() && process.env.DATABASE_URL?.trim()) {
-  process.env.DIRECT_URL = process.env.DATABASE_URL;
-}
-
 function assertPostgresUrl(name: string, value: string | undefined): void {
   if (!value?.trim()) {
     throw new Error(
@@ -25,7 +20,6 @@ function assertPostgresUrl(name: string, value: string | undefined): void {
 }
 
 assertPostgresUrl('DATABASE_URL', process.env.DATABASE_URL);
-assertPostgresUrl('DIRECT_URL', process.env.DIRECT_URL);
 
 export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
