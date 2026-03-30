@@ -20,6 +20,7 @@ WORKDIR /app
 RUN npm run build
 
 FROM node:20-bookworm-slim AS runner
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/package.json /app/package-lock.json* ./
@@ -30,4 +31,5 @@ COPY --from=build /app/server/prisma ./server/prisma
 COPY --from=build /app/server/package.json ./server/
 WORKDIR /app/server
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# DIRECT_URL defaults to DATABASE_URL so `prisma migrate` works when only one URL is set (e.g. Railway).
+CMD ["sh", "-c", "export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" && npx prisma migrate deploy && node dist/server.js"]
