@@ -61,7 +61,23 @@ export function useAnchorHost({ broadcast, meetingId, hostSpeakerName }: UseAnch
       // 1. Rolling buffer — RTMS + mock POST to same table; optional hostSpeaker = professor only
       const bufferRes = await fetch(bufferUrl());
       if (!bufferRes.ok) throw new Error('Failed to fetch transcript buffer');
-      const data = await bufferRes.json();
+      const data = (await bufferRes.json()) as {
+        buffer?: string;
+        degraded?: boolean;
+        reason?: string;
+      };
+
+      if (data.degraded && data.reason === 'database_unavailable') {
+        setState(prev => ({
+          ...prev,
+          error:
+            'Transcript unavailable: the API cannot reach PostgreSQL. Set DATABASE_URL on Railway (e.g. Neon pooled URL with sslmode=require).',
+        }));
+        return;
+      }
+
+      setState(prev => ({ ...prev, error: null }));
+
       const text = typeof data.buffer === 'string' ? data.buffer : '';
 
       if (!text || text.trim().length < 20) {
