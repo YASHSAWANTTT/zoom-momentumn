@@ -16,7 +16,9 @@ WORKDIR /app/server
 RUN DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder" \
     npx prisma generate
 WORKDIR /app
-RUN npm run build
+# Invalidate cached `npm run build` when server output must change (Railway/Docker layer cache).
+ARG CACHE_BUST=2026-03-30-esm-config
+RUN echo "$CACHE_BUST" && npm run build
 
 FROM node:20-bookworm-slim AS runner
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*

@@ -2,9 +2,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Load .env from project root (ESM has no __dirname — same pattern as server.ts)
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Repo-root .env for local dev. Never use a bare `__dirname` identifier — some hosts cache old dist.
+dotenv.config({
+  path: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.env'),
+});
 
 function required(key: string): string {
   const value = process.env[key];
