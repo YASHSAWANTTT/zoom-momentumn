@@ -73,10 +73,33 @@ function prismaHealthMeta(err: unknown): { prismaCode?: string; hint: string } {
     return { prismaCode: err.code, hint: hints[err.code] ?? 'See Railway deploy logs for details.' };
   }
   if (err instanceof Prisma.PrismaClientInitializationError) {
+    const msg = err.message;
+    // Same Prisma class as DB connect failures — disambiguate by message
+    if (/Query Engine|binaryTargets|debian-openssl|openssl-\d|locate the Query Engine/i.test(msg)) {
+      return {
+        prismaCode: 'ENGINE',
+        hint:
+          'Prisma query-engine binary does not match the server OS/OpenSSL. In prisma/schema.prisma set binaryTargets to include debian-openssl-3.0.x (plus native), run prisma generate, rebuild the Docker image, and redeploy.',
+      };
+    }
+    if (/Can\'t reach database server|Timed out trying to acquire a postgres advisory lock/i.test(msg)) {
+      return {
+        prismaCode: 'P1001',
+        hint:
+          'Cannot reach Postgres — Neon paused, wrong host, firewall, or DATABASE_URL. Use Neon’s connection string with sslmode=require; URL-encode special characters in the password.',
+      };
+    }
+    if (/Authentication failed|password authentication failed|28P01/i.test(msg)) {
+      return {
+        prismaCode: 'P1000',
+        hint:
+          'Postgres rejected credentials — copy a fresh connection string from Neon (or reset password) and update DATABASE_URL on Railway.',
+      };
+    }
     return {
       prismaCode: 'INIT',
       hint:
-        'Prisma could not open a connection. Verify DATABASE_URL (no smart quotes), sslmode=require, URL-encoded password if it contains @ or #, and redeploy after changing variables.',
+        'Prisma failed to initialize. Check Railway logs for the full message. Common fixes: valid DATABASE_URL (no smart quotes), sslmode=require, URL-encoded password if it contains @ or #; redeploy after changing variables.',
     };
   }
   const msg = err instanceof Error ? err.message : String(err);
