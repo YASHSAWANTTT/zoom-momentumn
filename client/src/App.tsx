@@ -32,11 +32,23 @@ export default function App() {
     onMessage: handleMessage,
   });
 
-  const pulseHost = usePulseHost({ broadcast: messaging.broadcast });
+  const pulseHost = usePulseHost({
+    broadcast: messaging.broadcast,
+    meetingId: zoom.meetingId,
+    hostSpeakerName: zoom.userName,
+  });
   const pulseStudent = usePulseStudent({ send: messaging.send });
-  const arenaHost = useArenaHost({ broadcast: messaging.broadcast });
+  const arenaHost = useArenaHost({
+    broadcast: messaging.broadcast,
+    meetingId: zoom.meetingId,
+    hostSpeakerName: zoom.userName,
+  });
   const arenaStudent = useArenaStudent({ send: messaging.send, participantName: zoom.userName });
-  const anchorHost = useAnchorHost({ broadcast: messaging.broadcast, meetingId: zoom.meetingId });
+  const anchorHost = useAnchorHost({
+    broadcast: messaging.broadcast,
+    meetingId: zoom.meetingId,
+    hostSpeakerName: zoom.userName,
+  });
 
   const handleAnchorStartPolling = useCallback(async () => {
     try {
@@ -65,6 +77,7 @@ export default function App() {
     isHost: zoom.isHost,
     broadcast: messaging.broadcast,
     onMeetingEnd: handleMeetingEnd,
+    hostParticipantId: zoom.participantId,
   });
 
   useEffect(() => {

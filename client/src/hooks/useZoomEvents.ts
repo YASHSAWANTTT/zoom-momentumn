@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import zoomSdk from '@zoom/appssdk';
 import type { MessageType } from '../types/messages';
 
@@ -6,31 +6,49 @@ interface UseZoomEventsOptions {
   isHost: boolean;
   broadcast: (type: MessageType, payload: unknown) => void;
   onMeetingEnd: () => void;
+  /** Host's participant UUID — used to skip spotlighting the professor */
+  hostParticipantId?: string;
 }
 
-export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEventsOptions) {
+export function useZoomEvents({
+  isHost,
+  broadcast,
+  onMeetingEnd,
+  hostParticipantId = '',
+}: UseZoomEventsOptions) {
   const [meetingEnded, setMeetingEnded] = useState(false);
   const [lateJoinInfo, setLateJoinInfo] = useState<{ topicCount: number; latestTopic: string } | null>(null);
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
   const [smartSpotlightEnabled, setSmartSpotlightEnabled] = useState(true);
-  const [lastSpotlightParticipantId, setLastSpotlightParticipantId] = useState<string | null>(null);
 
-  // Late joiner detection:
-  // When a student receives FULL_STATE with existing topics, show catch-up info
-  const handleFullState = useCallback((payload: any) => {
-    const fullStateTopics = payload?.liveAnchor?.topics;
+  const hasShownLateJoinRef = useRef(false);
+  const smartSpotlightRef = useRef(smartSpotlightEnabled);
+  const lastSpotlightParticipantIdRef = useRef<string | null>(null);
+  const hostParticipantIdRef = useRef(hostParticipantId);
+
+  useEffect(() => {
+    smartSpotlightRef.current = smartSpotlightEnabled;
+  }, [smartSpotlightEnabled]);
+
+  useEffect(() => {
+    hostParticipantIdRef.current = hostParticipantId;
+  }, [hostParticipantId]);
+
+  // Late joiner: show once when we first see topics in FULL_STATE (not on every host rebroadcast)
+  const handleFullState = useCallback((payload: unknown) => {
+    if (hasShownLateJoinRef.current) return;
+    const p = payload as { liveAnchor?: { topics?: unknown[] } } | null;
+    const fullStateTopics = p?.liveAnchor?.topics;
     if (Array.isArray(fullStateTopics) && fullStateTopics.length > 0) {
+      hasShownLateJoinRef.current = true;
       setLateJoinInfo({
         topicCount: fullStateTopics.length,
-        latestTopic: fullStateTopics[fullStateTopics.length - 1]?.title ?? 'Unknown',
+        latestTopic: (fullStateTopics[fullStateTopics.length - 1] as { title?: string })?.title ?? 'Unknown',
       });
-      // Auto-dismiss after 8 seconds
       setTimeout(() => setLateJoinInfo(null), 8000);
     }
   }, []);
 
-  // Meeting end detection:
-  // Use zoomSdk.onRunningContextChange() to detect leaving the meeting
   useEffect(() => {
     try {
       zoomSdk.onRunningContextChange((event: { runningContext: string }) => {
@@ -44,48 +62,65 @@ export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEvents
     }
   }, [onMeetingEnd]);
 
-  // Active speaker tracking (host only):
-  // When active speaker changes, broadcast SPEAKER_SPOTLIGHT
   useEffect(() => {
     if (!isHost) return;
     try {
       zoomSdk.onActiveSpeakerChange(async (event) => {
         const speaker = event.users?.[0];
-        if (speaker) {
-          setActiveSpeaker(speaker.screenName);
-          broadcast('SPEAKER_SPOTLIGHT', {
-            speakerName: speaker.screenName,
-            participantId: speaker.participantUUID,
-            timestamp: Date.now(),
-          });
+        if (!speaker) return;
 
-          // Smart Spotlight: spotlight active student speaker when enabled
-          if (smartSpotlightEnabled) {
-            const participantId = speaker.participantUUID;
-            // Remove previous spotlight if it changed
-            if (lastSpotlightParticipantId && lastSpotlightParticipantId !== participantId) {
-              try {
-                await zoomSdk.removeParticipantSpotlights({
-                  participantUUIDs: [lastSpotlightParticipantId],
-                });
-              } catch {
-                // ignore spotlight errors
-              }
-            }
-            // Add spotlight for the new speaker
+        setActiveSpeaker(speaker.screenName);
+        broadcast('SPEAKER_SPOTLIGHT', {
+          speakerName: speaker.screenName,
+          participantId: speaker.participantUUID,
+          timestamp: Date.now(),
+        });
+
+        const hostId = hostParticipantIdRef.current;
+        if (!hostId) {
+          // Wait until we have the host UUID; avoids spotlighting the professor when id is still empty
+          return;
+        }
+        const isProfessor = speaker.participantUUID === hostId;
+
+        // Do not spotlight the host — spotlight is for student questions / discussion
+        if (isProfessor) {
+          if (lastSpotlightParticipantIdRef.current) {
             try {
-              await zoomSdk.addParticipantSpotlight({ participantUUID: participantId });
-              setLastSpotlightParticipantId(participantId);
+              await zoomSdk.removeParticipantSpotlights({
+                participantUUIDs: [lastSpotlightParticipantIdRef.current],
+              });
             } catch {
-              // ignore spotlight errors
+              /* ignore */
             }
+            lastSpotlightParticipantIdRef.current = null;
           }
+          return;
+        }
+
+        if (!smartSpotlightRef.current) return;
+
+        const participantId = speaker.participantUUID;
+        if (lastSpotlightParticipantIdRef.current && lastSpotlightParticipantIdRef.current !== participantId) {
+          try {
+            await zoomSdk.removeParticipantSpotlights({
+              participantUUIDs: [lastSpotlightParticipantIdRef.current],
+            });
+          } catch {
+            /* ignore */
+          }
+        }
+        try {
+          await zoomSdk.addParticipantSpotlight({ participantUUID: participantId });
+          lastSpotlightParticipantIdRef.current = participantId;
+        } catch {
+          /* ignore */
         }
       });
     } catch {
       // Not in Zoom context
     }
-  }, [isHost, broadcast, smartSpotlightEnabled, lastSpotlightParticipantId]);
+  }, [isHost, broadcast]);
 
   const dismissLateJoinInfo = useCallback(() => setLateJoinInfo(null), []);
 

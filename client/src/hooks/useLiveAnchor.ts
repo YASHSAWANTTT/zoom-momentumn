@@ -17,11 +17,15 @@ interface UseAnchorHostOptions {
   broadcast: (type: MessageType, payload: unknown) => void;
   /** Zoom meeting UUID — must match RTMS / transcript rows (same as `useZoomSdk` meetingId). */
   meetingId: string;
+  /** When set, transcript buffer is filtered to this speaker (match RTMS `userName` / host display name). */
+  hostSpeakerName?: string;
 }
 
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
+/** Min time between AUTO_BOOKMARK broadcasts for the same cue fingerprint */
+const CUE_COOLDOWN_MS = 90_000;
 
-export function useAnchorHost({ broadcast, meetingId }: UseAnchorHostOptions) {
+export function useAnchorHost({ broadcast, meetingId, hostSpeakerName }: UseAnchorHostOptions) {
   const [state, setState] = useState<AnchorHostState>({
     topics: [],
     currentTopicId: '',
@@ -33,6 +37,15 @@ export function useAnchorHost({ broadcast, meetingId }: UseAnchorHostOptions) {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingRef = useRef(false); // guard against concurrent fetches
+  const lastCueAtRef = useRef(0);
+  const lastCueKeyRef = useRef('');
+
+  const bufferUrl = useCallback(() => {
+    const params = new URLSearchParams({ meetingId: meetingId ?? '' });
+    const host = hostSpeakerName?.trim();
+    if (host) params.set('hostSpeaker', host);
+    return `/api/transcript/buffer?${params}`;
+  }, [meetingId, hostSpeakerName]);
 
   const pollTranscript = useCallback(async () => {
     if (pollingRef.current) return;
@@ -45,10 +58,8 @@ export function useAnchorHost({ broadcast, meetingId }: UseAnchorHostOptions) {
         return;
       }
 
-      // 1. Fetch the rolling transcript buffer (RTMS + mock-transcript use same meeting id)
-      const bufferRes = await fetch(
-        `/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`,
-      );
+      // 1. Rolling buffer — RTMS + mock POST to same table; optional hostSpeaker = professor only
+      const bufferRes = await fetch(bufferUrl());
       if (!bufferRes.ok) throw new Error('Failed to fetch transcript buffer');
       const data = await bufferRes.json();
       const text = typeof data.buffer === 'string' ? data.buffer : '';
@@ -122,12 +133,26 @@ export function useAnchorHost({ broadcast, meetingId }: UseAnchorHostOptions) {
           if (cueRes.ok) {
             const cueResult = await cueRes.json();
             if (cueResult.hasCue) {
-              const currentTopicTitle = result.topic?.title ?? state.topics.find(t => t.id === state.currentTopicId)?.title ?? 'Unknown';
-              broadcast('AUTO_BOOKMARK', {
-                topic: currentTopicTitle,
-                cues: cueResult.cues,
-                timestamp: Date.now(),
-              });
+              const cueKey = JSON.stringify(cueResult.cues ?? []);
+              const now = Date.now();
+              if (
+                cueKey === lastCueKeyRef.current &&
+                now - lastCueAtRef.current < CUE_COOLDOWN_MS
+              ) {
+                // same cue still in buffer — avoid spamming students
+              } else {
+                lastCueKeyRef.current = cueKey;
+                lastCueAtRef.current = now;
+                const currentTopicTitle =
+                  result.topic?.title ??
+                  state.topics.find((t) => t.id === state.currentTopicId)?.title ??
+                  'Unknown';
+                broadcast('AUTO_BOOKMARK', {
+                  topic: currentTopicTitle,
+                  cues: cueResult.cues,
+                  timestamp: now,
+                });
+              }
             }
           }
         } catch (cueErr) {
@@ -160,7 +185,7 @@ export function useAnchorHost({ broadcast, meetingId }: UseAnchorHostOptions) {
     } finally {
       pollingRef.current = false;
     }
-  }, [broadcast, meetingId, state.currentTopicId, state.topics]);
+  }, [broadcast, meetingId, state.currentTopicId, state.topics, bufferUrl]);
 
   const startPolling = useCallback(() => {
     if (timerRef.current) return;

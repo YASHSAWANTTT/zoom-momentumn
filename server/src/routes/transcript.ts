@@ -30,10 +30,15 @@ transcriptRouter.post('/segment', async (req, res) => {
   }
 });
 
-// GET /api/transcript/buffer?meetingId=xxx — Get rolling buffer (last ~300 words)
+// GET /api/transcript/buffer?meetingId=xxx&hostSpeaker=Name
+// Optional hostSpeaker: only include segments whose speaker label matches (RTMS userName for that speaker).
+// Omit hostSpeaker to include all speakers (legacy / mixed discussion).
 transcriptRouter.get('/buffer', async (req, res) => {
   try {
     const meetingId = req.query.meetingId as string;
+    const hostSpeakerRaw = req.query.hostSpeaker as string | undefined;
+    const hostNorm = hostSpeakerRaw?.trim().toLowerCase() ?? '';
+
     if (!meetingId) {
       res.status(400).json({ error: 'meetingId is required' });
       return;
@@ -42,10 +47,16 @@ transcriptRouter.get('/buffer', async (req, res) => {
     const segments = await prisma.transcriptSegment.findMany({
       where: { meetingId },
       orderBy: { seqNo: 'desc' },
-      take: 50, // Get recent segments, trim to ~300 words
+      // Pull extra rows so after host-only filtering we still have enough text
+      take: hostNorm ? 200 : 50,
     });
 
-    const buffer = segments
+    const filtered: TranscriptSegment[] = hostNorm
+      ? segments.filter((s) => s.speaker.trim().toLowerCase() === hostNorm)
+      : segments;
+
+    const buffer = filtered
+      .slice()
       .reverse()
       .map((s: TranscriptSegment) => s.text)
       .join(' ');
@@ -54,7 +65,11 @@ transcriptRouter.get('/buffer', async (req, res) => {
     const words = buffer.split(/\s+/);
     const trimmed = words.slice(-300).join(' ');
 
-    res.json({ buffer: trimmed, segmentCount: segments.length });
+    res.json({
+      buffer: trimmed,
+      segmentCount: filtered.length,
+      hostFiltered: Boolean(hostNorm),
+    });
   } catch (err) {
     console.error('[transcript] buffer error:', err);
     res.status(500).json({ error: 'Failed to get buffer' });

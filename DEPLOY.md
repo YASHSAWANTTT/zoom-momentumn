@@ -21,9 +21,12 @@ Set these on your host (Railway, Render, Fly, EC2, etc.). Copy from [`.env.examp
 | `ZOOM_SECRET_TOKEN` | Webhook secret token |
 | `SESSION_SECRET` | Random string |
 | `ZM_RTMS_CLIENT`, `ZM_RTMS_SECRET` | Same as Zoom Client ID/Secret unless Zoom says otherwise |
-| `AWS_REGION` | e.g. `us-east-1` (must match where Bedrock models are enabled) |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | IAM user with `bedrock:InvokeModel` on your chosen model (or omit on AWS if the instance uses an IAM role) |
-| `BEDROCK_MODEL_ID` | Optional; default `meta.llama3-70b-instruct-v1:0` — enable this model in **AWS Console → Bedrock → Model access** |
+| `OPENAI_API_KEY` | **Recommended:** OpenAI API key; all `/api/ai/*` routes use Chat Completions when this is set |
+| `OPENAI_BASE_URL` | Optional; default `https://api.openai.com/v1` (OpenAI-compatible APIs) |
+| `OPENAI_MODEL` | Optional; default `gpt-4o-mini` |
+| `AWS_REGION` | Used for Bedrock **only if `OPENAI_API_KEY` is unset** |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | IAM with `bedrock:InvokeModel` when using Bedrock |
+| `BEDROCK_MODEL_ID` | Optional Bedrock model id when not using OpenAI |
 
 **Important:** `CLIENT_URL` must match the public HTTPS origin where the app is hosted (Zoom OAuth redirect returns to the app with `?zoom_auth=callback`).
 

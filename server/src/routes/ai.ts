@@ -2,7 +2,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { Router } from 'express';
 import { config } from '../config.js';
 
-const DEFAULT_MODEL_ID = 'meta.llama3-70b-instruct-v1:0';
+const DEFAULT_BEDROCK_MODEL_ID = 'meta.llama3-70b-instruct-v1:0';
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
 let bedrockClient: BedrockRuntimeClient | null = null;
 
@@ -14,8 +15,8 @@ function getBedrockClient(): BedrockRuntimeClient {
   return bedrockClient;
 }
 
-function getModelId(): string {
-  return (process.env.BEDROCK_MODEL_ID || DEFAULT_MODEL_ID).trim();
+function getBedrockModelId(): string {
+  return (process.env.BEDROCK_MODEL_ID || DEFAULT_BEDROCK_MODEL_ID).trim();
 }
 
 /** Meta Llama 3 on Bedrock expects instruction-tagged prompts for best results. */
@@ -23,8 +24,48 @@ function wrapLlama3Prompt(userPrompt: string): string {
   return `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n${userPrompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n`;
 }
 
-async function callAI(prompt: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
-  const modelId = getModelId();
+/** OpenAI or any OpenAI-compatible API (set OPENAI_BASE_URL for proxies). */
+async function callOpenAI(prompt: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const model = (process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL).trim();
+
+  const res = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: opts?.temperature ?? 0.7,
+      max_tokens: opts?.maxTokens ?? 1000,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`OpenAI HTTP ${res.status}: ${errText.slice(0, 500)}`);
+  }
+
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const text = data.choices?.[0]?.message?.content;
+  if (typeof text === 'string' && text.trim().length > 0) {
+    return text;
+  }
+
+  throw new Error('OpenAI returned empty content');
+}
+
+async function callBedrock(prompt: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  const modelId = getBedrockModelId();
   const maxGenLen = opts?.maxTokens ?? 1000;
   const temperature = opts?.temperature ?? 0.7;
   const topP = 0.9;
@@ -61,6 +102,14 @@ async function callAI(prompt: string, opts?: { temperature?: number; maxTokens?:
   return raw;
 }
 
+/** Prefer OpenAI when OPENAI_API_KEY is set; otherwise AWS Bedrock. */
+async function callAI(prompt: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  if (process.env.OPENAI_API_KEY?.trim()) {
+    return callOpenAI(prompt, opts);
+  }
+  return callBedrock(prompt, opts);
+}
+
 export const aiRouter = Router();
 
 /** Extract JSON from a response that may contain markdown fences or conversational text */
@@ -78,15 +127,21 @@ function extractJSON(text: string): any {
 // ────────────────── Poll Generate ──────────────────
 
 aiRouter.post('/poll-generate', async (req, res) => {
-  const { context, currentTopic } = req.body;
+  const { context, currentTopic, transcript } = req.body;
+  const lecture =
+    typeof transcript === 'string' && transcript.trim().length > 0
+      ? `Recent lecture transcript (professor):\n"${transcript.slice(0, 1800)}"`
+      : '';
 
   try {
     const prompt = `You are an AI assistant for a live classroom engagement tool. Generate a single multiple-choice check-in poll question that a professor can ask students during a lecture.
 
 ${currentTopic ? `The lecture is currently covering: "${currentTopic}"` : 'The professor has not specified the current topic.'}
 ${context ? `The professor adds this context: "${context}"` : ''}
+${lecture}
 
 Your job is to create a question that helps the professor gauge how well students are following the material. The question should be directly relevant to whatever subject is being taught.
+${lecture ? 'Base the question primarily on what was just said in the transcript when possible.' : ''}
 
 Respond with ONLY a JSON object — no markdown, no explanation:
 {"question": "...", "options": ["option1", "option2", "option3", "option4"]}

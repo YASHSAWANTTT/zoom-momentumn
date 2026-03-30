@@ -21,9 +21,11 @@ interface ArenaHostState {
 
 interface UseArenaHostOptions {
   broadcast: (type: MessageType, payload: unknown) => void;
+  meetingId?: string;
+  hostSpeakerName?: string;
 }
 
-export function useArenaHost({ broadcast }: UseArenaHostOptions) {
+export function useArenaHost({ broadcast, meetingId, hostSpeakerName }: UseArenaHostOptions) {
   const [state, setState] = useState<ArenaHostState>({
     phase: 'idle',
     questions: [],
@@ -70,7 +72,7 @@ export function useArenaHost({ broadcast }: UseArenaHostOptions) {
       const message = err instanceof Error ? err.message : 'Failed to load quiz';
       setState(prev => ({ ...prev, phase: 'idle', error: message }));
     }
-  }, []);
+  }, [meetingId, hostSpeakerName]);
 
   const startGame = useCallback(() => {
     setState(prev => {

@@ -26,13 +26,15 @@ interface PulseStudentState {
 
 interface UsePulseHostOptions {
   broadcast: (type: MessageType, payload: unknown) => void;
+  meetingId?: string;
+  hostSpeakerName?: string;
 }
 
 interface UsePulseStudentOptions {
   send: (type: MessageType, payload: unknown) => void;
 }
 
-export function usePulseHost({ broadcast }: UsePulseHostOptions) {
+export function usePulseHost({ broadcast, meetingId, hostSpeakerName }: UsePulseHostOptions) {
   const [state, setState] = useState<PulseHostState>({
     phase: 'idle',
     draft: null,
@@ -46,10 +48,24 @@ export function usePulseHost({ broadcast }: UsePulseHostOptions) {
     setState(prev => ({ ...prev, phase: 'generating', error: null }));
 
     try {
+      let transcript: string | undefined;
+      if (meetingId?.trim()) {
+        const params = new URLSearchParams({ meetingId });
+        const h = hostSpeakerName?.trim();
+        if (h) params.set('hostSpeaker', h);
+        const br = await fetch(`/api/transcript/buffer?${params}`);
+        if (br.ok) {
+          const j = (await br.json()) as { buffer?: string };
+          if (typeof j.buffer === 'string' && j.buffer.trim().length > 0) {
+            transcript = j.buffer;
+          }
+        }
+      }
+
       const res = await fetch('/api/ai/poll-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ context, currentTopic }),
+        body: JSON.stringify({ context, currentTopic, transcript }),
       });
 
       if (!res.ok) throw new Error('Failed to generate poll');
@@ -68,7 +84,7 @@ export function usePulseHost({ broadcast }: UsePulseHostOptions) {
       const message = err instanceof Error ? err.message : 'Failed to generate poll';
       setState(prev => ({ ...prev, phase: 'idle', error: message }));
     }
-  }, []);
+  }, [meetingId, hostSpeakerName]);
 
   const updateDraft = useCallback((updates: Partial<PollDraft>) => {
     setState(prev => {
