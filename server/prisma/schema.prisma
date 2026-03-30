@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Railway / many Linux images use OpenSSL 3; local dev uses native
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
