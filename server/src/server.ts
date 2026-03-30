@@ -15,7 +15,9 @@ import { prisma, disconnectPrisma } from './db/prisma.js';
 
 const app = express();
 
-if (process.env.NODE_ENV === 'production') {
+const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd) {
   app.set('trust proxy', 1);
 }
 
@@ -27,10 +29,12 @@ app.use(
     secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
+    name: 'zm.sid',
     cookie: {
-      secure: true, // Set true in production with HTTPS
+      // Production: HTTPS + cross-site (Zoom in-meeting WebView → Railway API)
+      secure: isProd,
       httpOnly: true,
-      sameSite: 'none' as const,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   }),

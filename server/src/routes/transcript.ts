@@ -1,9 +1,18 @@
 import type { TranscriptSegment } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../db/prisma.js';
+import { resolveMeetingId } from '../services/meeting-resolver.js';
+
 export const transcriptRouter = Router();
 
+function logTranscriptError(context: string, err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  const code = err && typeof err === 'object' && 'code' in err ? String((err as { code?: string }).code) : '';
+  console.error(`[transcript] ${context}:`, msg, code ? `(code ${code})` : '', err);
+}
+
 // POST /api/transcript/segment — Store a transcript chunk (from RTMS or mock)
+// meetingId may be internal Meeting.id, Zoom meeting UUID (zoomMeetingId), or any key resolveMeetingId accepts.
 transcriptRouter.post('/segment', async (req, res) => {
   try {
     const { meetingId, speaker, text, timestamp, seqNo } = req.body;
@@ -13,9 +22,18 @@ transcriptRouter.post('/segment', async (req, res) => {
       return;
     }
 
+    const internalMeetingId = await resolveMeetingId(String(meetingId).trim(), {
+      createIfMissing: true,
+      defaultTitle: 'Transcript session',
+    });
+    if (!internalMeetingId) {
+      res.status(500).json({ error: 'Failed to resolve meeting' });
+      return;
+    }
+
     const segment = await prisma.transcriptSegment.create({
       data: {
-        meetingId,
+        meetingId: internalMeetingId,
         speaker: speaker ?? 'Unknown',
         text,
         timestamp: BigInt(timestamp ?? Date.now()),
@@ -25,27 +43,39 @@ transcriptRouter.post('/segment', async (req, res) => {
 
     res.json({ id: segment.id });
   } catch (err) {
-    console.error('[transcript] segment error:', err);
+    logTranscriptError('segment error', err);
     res.status(500).json({ error: 'Failed to store segment' });
   }
 });
 
 // GET /api/transcript/buffer?meetingId=xxx&hostSpeaker=Name
+// meetingId: Zoom meeting UUID (from SDK), internal Meeting.id, or zoomMeetingId string — resolved to internal id.
 // Optional hostSpeaker: only include segments whose speaker label matches (RTMS userName for that speaker).
 // Omit hostSpeaker to include all speakers (legacy / mixed discussion).
 transcriptRouter.get('/buffer', async (req, res) => {
   try {
-    const meetingId = req.query.meetingId as string;
+    const meetingRef = (req.query.meetingId as string)?.trim();
     const hostSpeakerRaw = req.query.hostSpeaker as string | undefined;
     const hostNorm = hostSpeakerRaw?.trim().toLowerCase() ?? '';
 
-    if (!meetingId) {
+    if (!meetingRef) {
       res.status(400).json({ error: 'meetingId is required' });
       return;
     }
 
+    const internalMeetingId = await resolveMeetingId(meetingRef, { createIfMissing: false });
+    if (!internalMeetingId) {
+      res.json({
+        buffer: '',
+        segmentCount: 0,
+        hostFiltered: Boolean(hostNorm),
+        meetingResolved: false,
+      });
+      return;
+    }
+
     const segments = await prisma.transcriptSegment.findMany({
-      where: { meetingId },
+      where: { meetingId: internalMeetingId },
       orderBy: { seqNo: 'desc' },
       // Pull extra rows so after host-only filtering we still have enough text
       take: hostNorm ? 200 : 50,
@@ -69,9 +99,10 @@ transcriptRouter.get('/buffer', async (req, res) => {
       buffer: trimmed,
       segmentCount: filtered.length,
       hostFiltered: Boolean(hostNorm),
+      meetingResolved: true,
     });
   } catch (err) {
-    console.error('[transcript] buffer error:', err);
+    logTranscriptError('buffer error', err);
     res.status(500).json({ error: 'Failed to get buffer' });
   }
 });

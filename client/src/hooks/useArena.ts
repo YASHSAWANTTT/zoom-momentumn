@@ -51,10 +51,24 @@ export function useArenaHost({ broadcast, meetingId, hostSpeakerName }: UseArena
   const fetchQuestions = useCallback(async (topic?: string) => {
     setState(prev => ({ ...prev, phase: 'loading', error: null }));
     try {
+      let transcript: string | undefined;
+      if (meetingId?.trim()) {
+        const params = new URLSearchParams({ meetingId });
+        const h = hostSpeakerName?.trim();
+        if (h) params.set('hostSpeaker', h);
+        const br = await fetch(`/api/transcript/buffer?${params}`);
+        if (br.ok) {
+          const j = (await br.json()) as { buffer?: string };
+          if (typeof j.buffer === 'string' && j.buffer.trim().length > 0) {
+            transcript = j.buffer;
+          }
+        }
+      }
+
       const res = await fetch('/api/ai/quiz-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, questionCount: 5 }),
+        body: JSON.stringify({ topic, questionCount: 5, transcript }),
       });
       if (!res.ok) throw new Error('Failed to generate quiz');
       const data = await res.json();
