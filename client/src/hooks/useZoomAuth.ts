@@ -20,7 +20,7 @@ export function useZoomAuth() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
           const user = await res.json();
           setAuth({ user, isAuthenticated: true, isLoading: false, error: null });
@@ -39,7 +39,7 @@ export function useZoomAuth() {
       setAuth((prev) => ({ ...prev, isLoading: true, error: null }));
 
       // Step 1: Get code challenge from backend
-      const challengeRes = await fetch('/api/auth/authorize');
+      const challengeRes = await fetch('/api/auth/authorize', { credentials: 'include' });
       if (!challengeRes.ok) throw new Error('Failed to get auth challenge');
       const { codeChallenge, state } = await challengeRes.json();
 
@@ -64,6 +64,7 @@ export function useZoomAuth() {
       // Step 5: Exchange code for session via backend
       const callbackRes = await fetch('/api/auth/callback', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state }),
       });

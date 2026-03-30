@@ -17,6 +17,7 @@ const SDK_CAPABILITIES = [
   'onConnect',
   'onMessage',
   'getUserContext',
+  'getMeetingUUID',
   'getMeetingParticipants',
   'onParticipantChange',
   'onActiveSpeakerChange',
@@ -54,14 +55,22 @@ export function useZoomSdk(): ZoomContext {
 
       const userContext = await zoomSdk.getUserContext();
 
-      // configResponse may contain meetingUUID at runtime even if not in the TS type
-      const meetingUUID = (configResponse as any).meetingUUID ?? '';
+      // Prefer explicit API — config() often omits meetingUUID in the typed response
+      let meetingId = String((configResponse as { meetingUUID?: string }).meetingUUID ?? '').trim();
+      if (!meetingId) {
+        try {
+          const uuidRes = await zoomSdk.getMeetingUUID();
+          meetingId = String(uuidRes.meetingUUID ?? '').trim();
+        } catch (uuidErr) {
+          console.warn('[zoom] getMeetingUUID failed:', uuidErr);
+        }
+      }
 
       setContext({
         isHost: userContext.role === 'host' || userContext.role === 'coHost',
         userName: userContext.screenName ?? '',
         participantId: userContext.participantUUID ?? '',
-        meetingId: meetingUUID,
+        meetingId,
         runningContext: configResponse.runningContext ?? 'inMeeting',
         isConfigured: true,
         error: null,

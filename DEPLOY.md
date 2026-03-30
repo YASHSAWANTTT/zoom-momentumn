@@ -21,9 +21,18 @@ Set these on your host (Railway, Render, Fly, EC2, etc.). Copy from [`.env.examp
 | `ZOOM_SECRET_TOKEN` | Webhook secret token |
 | `SESSION_SECRET` | Random string |
 | `ZM_RTMS_CLIENT`, `ZM_RTMS_SECRET` | Same as Zoom Client ID/Secret unless Zoom says otherwise |
-| AI keys | As required by your [`server/src/routes/ai.ts`](server/src/routes/ai.ts) |
+| `AWS_REGION` | e.g. `us-east-1` (must match where Bedrock models are enabled) |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | IAM user with `bedrock:InvokeModel` on your chosen model (or omit on AWS if the instance uses an IAM role) |
+| `BEDROCK_MODEL_ID` | Optional; default `meta.llama3-70b-instruct-v1:0` — enable this model in **AWS Console → Bedrock → Model access** |
 
 **Important:** `CLIENT_URL` must match the public HTTPS origin where the app is hosted (Zoom OAuth redirect returns to the app with `?zoom_auth=callback`).
+
+**Production checklist**
+
+1. Database: `DATABASE_URL` reachable from the host.
+2. Zoom: `CLIENT_URL`, `ZOOM_REDIRECT_URL`, Marketplace Home + OAuth URLs aligned; `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` / `SESSION_SECRET` set.
+3. **AI (required for Pulse, Arena, Anchor AI):** `AWS_REGION` + credentials (or IAM role) and **Bedrock model access** enabled for the model ID you use (`BEDROCK_MODEL_ID` or default above).
+4. Optional: RTMS live transcript — `ZM_RTMS_*`, webhook URL, RTMS configured in Zoom.
 
 ## Option A: Docker (any platform)
 

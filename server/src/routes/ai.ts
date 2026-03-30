@@ -1,53 +1,64 @@
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { Router } from 'express';
 import { config } from '../config.js';
 
-const MODEL_ID = 'meta.llama3-70b-instruct-v1:0';
+const DEFAULT_MODEL_ID = 'meta.llama3-70b-instruct-v1:0';
+
+let bedrockClient: BedrockRuntimeClient | null = null;
+
+function getBedrockClient(): BedrockRuntimeClient {
+  if (!bedrockClient) {
+    const region = config.aws.region ?? 'us-east-1';
+    bedrockClient = new BedrockRuntimeClient({ region });
+  }
+  return bedrockClient;
+}
+
+function getModelId(): string {
+  return (process.env.BEDROCK_MODEL_ID || DEFAULT_MODEL_ID).trim();
+}
+
+/** Meta Llama 3 on Bedrock expects instruction-tagged prompts for best results. */
+function wrapLlama3Prompt(userPrompt: string): string {
+  return `<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n${userPrompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n`;
+}
 
 async function callAI(prompt: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
-  const apiKey = process.env.BEDROCK_API_KEY;
-  if (!apiKey) {
-    throw new Error('BEDROCK_API_KEY is not set');
-  }
+  const modelId = getModelId();
+  const maxGenLen = opts?.maxTokens ?? 1000;
+  const temperature = opts?.temperature ?? 0.7;
+  const topP = 0.9;
 
-  const region = config.aws.region ?? 'us-east-1';
-  const url = `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(MODEL_ID)}/invoke`;
-
-  const body = {
-    inputText: prompt,
-    textGenerationConfig: {
-      maxTokenCount: opts?.maxTokens ?? 1000,
-      temperature: opts?.temperature ?? 0.7,
-      topP: 0.9,
-      stopSequences: [] as string[],
-    },
-  };
-
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-amz-api-key': apiKey,
-    },
-    body: JSON.stringify(body),
+  const body = JSON.stringify({
+    prompt: wrapLlama3Prompt(prompt),
+    max_gen_len: maxGenLen,
+    temperature,
+    top_p: topP,
   });
 
-  if (!resp.ok) {
-    throw new Error(`Bedrock HTTP error: ${resp.status} ${resp.statusText}`);
+  const client = getBedrockClient();
+  const out = await client.send(
+    new InvokeModelCommand({
+      modelId,
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: Buffer.from(body, 'utf-8'),
+    }),
+  );
+
+  if (!out.body) {
+    throw new Error('Bedrock returned empty body');
   }
 
-  const data: any = await resp.json();
+  const raw = Buffer.from(out.body).toString('utf-8');
+  const data = JSON.parse(raw) as { generation?: string; outputText?: string };
 
-  // Meta Llama responses typically include outputText or results[0].outputText
-  const direct = data.outputText ?? data.outputTextToken ?? null;
-  if (typeof direct === 'string' && direct.trim().length > 0) {
-    return direct;
-  }
-  if (Array.isArray(data.results) && data.results[0]?.outputText) {
-    return String(data.results[0].outputText);
+  const text = data.generation ?? data.outputText;
+  if (typeof text === 'string' && text.trim().length > 0) {
+    return text;
   }
 
-  // Fallback: return the whole object as a JSON string (extractJSON can still work)
-  return JSON.stringify(data);
+  return raw;
 }
 
 export const aiRouter = Router();
