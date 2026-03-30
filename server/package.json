@@ -2,6 +2,7 @@
   "name": "zoom-momentum-server",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
