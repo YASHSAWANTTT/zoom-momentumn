@@ -16,8 +16,12 @@ function optional(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+// Railway sets PORT; use `||` so empty string falls back (?? would keep "").
+const portStr = (process.env.PORT || '3001').trim();
+const parsedPort = parseInt(portStr, 10);
+
 export const config = {
-  port: parseInt(optional('PORT', '3001'), 10),
+  port: Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 3001,
   clientUrl: optional('CLIENT_URL', 'http://localhost:5173'),
 
   zoom: {

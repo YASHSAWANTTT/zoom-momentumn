@@ -74,3 +74,11 @@ After deploy, use:
 
 - `GET https://YOUR-PUBLIC-URL/` → should load the app
 - `GET https://YOUR-PUBLIC-URL/api/health` → `{ "status": "ok", "database": "up", ... }` if DB is wired
+
+### Railway HTTP 502 / “connection dial timeout”
+
+The edge can’t connect to your container. Common causes:
+
+1. **Process crashed on startup** — missing **`ZOOM_CLIENT_ID`**, **`ZOOM_CLIENT_SECRET`**, **`ZOOM_REDIRECT_URL`**, **`SESSION_SECRET`**, or **`DATABASE_URL`**. Open **Deploy logs** and fix Variables.
+2. **Migrations failed** — fix DB URL / permissions; logs show `prisma migrate deploy` errors.
+3. After fixing env, **redeploy** and wait until logs show `[server] listening on 0.0.0.0:PORT`.

@@ -106,7 +106,7 @@ process.on('uncaughtException', (err) => {
 });
 
 app.listen(config.port, '0.0.0.0', () => {
-  console.log(`[server] listening on port ${config.port}`);
+  console.log(`[server] listening on 0.0.0.0:${config.port} (process.env.PORT=${process.env.PORT ?? 'unset'})`);
 });
 
 // Graceful shutdown — close RTMS sessions
