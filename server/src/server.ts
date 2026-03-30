@@ -4,6 +4,7 @@ import session from 'express-session';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Prisma } from '@prisma/client';
 import { config } from './config.js';
 import { authRouter } from './routes/auth.js';
 import { aiRouter } from './routes/ai.js';
@@ -57,6 +58,38 @@ app.use('/api/transcript', transcriptRouter);
 app.use('/api/bookmarks', bookmarkRouter);
 app.use('/api/rtms', rtmsRouter);
 
+function prismaHealthMeta(err: unknown): { prismaCode?: string; hint: string } {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    const hints: Record<string, string> = {
+      P1000:
+        'Authentication failed — wrong user/password in DATABASE_URL, or password changed. Regenerate the connection string in Neon.',
+      P1001:
+        'Cannot reach Postgres host — check Neon is not paused, hostname is correct, and sslmode=require is present.',
+      P1017:
+        'Server closed the connection — try Neon pooled URL; remove channel_binding from URL if issues persist.',
+      P2024:
+        'Connection pool timeout — increase Neon compute or use pooled connection string.',
+    };
+    return { prismaCode: err.code, hint: hints[err.code] ?? 'See Railway deploy logs for details.' };
+  }
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    return {
+      prismaCode: 'INIT',
+      hint:
+        'Prisma could not open a connection. Verify DATABASE_URL (no smart quotes), sslmode=require, URL-encoded password if it contains @ or #, and redeploy after changing variables.',
+    };
+  }
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/Can\'t reach database server|ECONNREFUSED|ENOTFOUND|getaddrinfo/i.test(msg)) {
+    return {
+      prismaCode: 'P1001',
+      hint:
+        'Network/DNS to database failed. Confirm Neon project is active, DATABASE_URL matches Neon “Connection string”, and Railway has outbound internet.',
+    };
+  }
+  return { hint: 'See Railway deploy logs for the full Prisma error.' };
+}
+
 // Health check (includes Neon/PostgreSQL connectivity)
 app.get('/api/health', async (_req, res) => {
   try {
@@ -64,10 +97,12 @@ app.get('/api/health', async (_req, res) => {
     res.json({ status: 'ok', database: 'up', timestamp: new Date().toISOString() });
   } catch (err) {
     console.error('[server] health db check failed:', err);
+    const meta = prismaHealthMeta(err);
     res.status(503).json({
       status: 'degraded',
       database: 'down',
       timestamp: new Date().toISOString(),
+      ...meta,
     });
   }
 });
