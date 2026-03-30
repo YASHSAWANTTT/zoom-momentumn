@@ -43,7 +43,7 @@ No test framework or linter is currently configured.
   - `ai.ts` — AI endpoints (`/poll-generate`, `/quiz-generate`, `/topic-segment`, `/recovery-pack`, `/detect-cues`)
   - `transcript.ts` — Transcript storage (`POST /segment`, `GET /buffer`)
   - `bookmarks.ts` — Bookmark CRUD
-- **Database** — Prisma ORM with PostgreSQL (e.g. Neon). Set `DATABASE_URL` (pooled) and `DIRECT_URL` (direct, for migrations) in `server/.env`. Schema in `server/prisma/schema.prisma` with models: User, Meeting, TranscriptSegment, Bookmark, QuizSet, RecoveryPack
+- **Database** — Prisma ORM with PostgreSQL (e.g. Neon). Set `DATABASE_URL` in `server/.env` (used for migrations and runtime). Schema in `server/prisma/schema.prisma` with models: User, Meeting, TranscriptSegment, Bookmark, QuizSet, RecoveryPack
 
 ### Mock Transcript (`mock-transcript/`)
 - Simulates Zoom RTMS by POSTing fake lecture chunks to `/api/transcript/segment` every 3 seconds

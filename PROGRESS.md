@@ -6,7 +6,7 @@
 - [x] Installed `@aws-sdk/client-bedrock-runtime`, removed `openai` dependency
 - [x] Updated `server/src/config.ts` — replaced `openai` config with `aws.region` + `zoom_secret_token`
 - [x] Updated `.env` — removed `OPENAI_API_KEY`, added `AWS_REGION=us-east-1`
-- [x] Ran Prisma migration — PostgreSQL schema (Neon-compatible); use `DATABASE_URL` + `DIRECT_URL` + `prisma migrate deploy`
+- [x] Ran Prisma migration — PostgreSQL schema (Neon-compatible); use `DATABASE_URL` + `prisma migrate deploy`
 - [x] Fixed duplicate `GET /callback` handler in `server/src/routes/auth.ts`
 - [x] Build passes (`npm run build`)
 - [x] All 5 AI endpoints verified with curl (poll-generate, topic-segment, quiz-generate, recovery-pack, detect-cues)

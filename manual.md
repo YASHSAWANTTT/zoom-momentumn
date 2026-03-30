@@ -16,7 +16,7 @@ This installs all three workspaces: `client`, `server`, and `mock-transcript`.
 
 ## 2. Run Prisma migrations
 
-Set `DATABASE_URL` and `DIRECT_URL` in `server/.env` to your [Neon](https://neon.tech) (or other PostgreSQL) connection strings (see `.env.example`), then:
+Set `DATABASE_URL` in `server/.env` to your [Neon](https://neon.tech) (or other PostgreSQL) connection string (see `.env.example`), then:
 
 ```bash
 cd server && npx prisma migrate deploy && cd ..
@@ -45,8 +45,7 @@ Required values in `.env`:
 | `SESSION_SECRET` | Any random string. Generate one: `openssl rand -hex 32` |
 | `OPENAI_API_KEY` | Your AI provider API key |
 | `OPENAI_BASE_URL` | `https://kiro.shitijmathur.tech/v1` (or omit for OpenAI default) |
-| `DATABASE_URL` | Neon **pooled** PostgreSQL URL (see Neon console) |
-| `DIRECT_URL` | Neon **direct** URL for Prisma migrations (or same as `DATABASE_URL` if you only have one) |
+| `DATABASE_URL` | PostgreSQL URL from Neon (or elsewhere); used for Prisma migrations and the running app |
 | `PORT` | `3001` (already set) |
 | `CLIENT_URL` | `http://localhost:5173` (already set) |
 
@@ -119,7 +118,7 @@ Run `npm run dev:mock` instead of `npm run dev`. This starts a mock transcript s
 ## Troubleshooting
 
 - **"Cannot find module" errors after clone:** Run `npm install` from the root.
-- **Prisma errors:** Ensure `server/.env` has valid `DATABASE_URL` and `DIRECT_URL`, then run `cd server && npx prisma migrate deploy`.
+- **Prisma errors:** Ensure `server/.env` has a valid `DATABASE_URL`, then run `cd server && npx prisma migrate deploy`.
 - **OAuth redirect fails:** Check that `ZOOM_REDIRECT_URL` in `.env` matches exactly what's configured in Zoom Marketplace.
 - **App doesn't load in Zoom:** Verify the Home URL in Marketplace matches your server domain. Check browser console for SDK errors.
 - **CORS errors:** The Vite dev server proxies `/api/*` to `localhost:3001`. Make sure the server is running.

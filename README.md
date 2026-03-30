@@ -162,8 +162,7 @@ The Zoom App is registered and configured on [marketplace.zoom.us](https://marke
 | `ZOOM_CLIENT_SECRET` | From Zoom Marketplace app |
 | `ZOOM_REDIRECT_URL` | `https://zoom.shitijmathur.tech/api/auth/callback` |
 | `SESSION_SECRET` | Random secret for express-session |
-| `DATABASE_URL` | PostgreSQL connection string (Neon **pooled** URL recommended for the app) |
-| `DIRECT_URL` | PostgreSQL **direct** (non-pooled) URL for Prisma migrations; use the same value as `DATABASE_URL` if Neon only provides one connection string |
+| `DATABASE_URL` | PostgreSQL connection string for Prisma and the app (Neon pooled URL is fine for migrations and runtime) |
 | `ZOOM_SECRET_TOKEN` | Zoom app **Secret Token** for webhook verification (RTMS and other events); should match Marketplace |
 | `ZM_RTMS_CLIENT` | Same as `ZOOM_CLIENT_ID` for `@zoom/rtms` server join (unless Zoom specifies otherwise) |
 | `ZM_RTMS_SECRET` | Same as `ZOOM_CLIENT_SECRET` for `@zoom/rtms` |
@@ -193,7 +192,7 @@ cp .env.example .env
 # 3. Copy env to server directory (server reads from its own cwd)
 cp .env server/.env
 
-# 4. Apply database migrations (requires valid Neon `DATABASE_URL` + `DIRECT_URL` in server/.env)
+# 4. Apply database migrations (requires valid `DATABASE_URL` in server/.env)
 cd server && npx prisma migrate deploy && cd ..
 
 # 5. Start development servers
@@ -347,9 +346,9 @@ Use **`npm run dev:mock`** so [`mock-transcript`](mock-transcript/) posts chunks
 
 ## Database (Neon / PostgreSQL)
 
-The app uses **PostgreSQL** only. [Neon](https://neon.tech) is a good fit (serverless Postgres, pooled + direct connection strings).
+The app uses **PostgreSQL** only. [Neon](https://neon.tech) is a good fit (serverless Postgres).
 
-1. Create a project in the Neon console and copy the **pooled** connection string into `DATABASE_URL` and the **direct** (non-pooled) string into `DIRECT_URL` in `server/.env` (and root `.env` if you keep them in sync). If Neon only shows one URL, set **both** variables to the same value.
+1. Create a project in the Neon console and copy your connection string into `DATABASE_URL` in `server/.env` (and root `.env` if you keep them in sync). Use the same URL for `npx prisma migrate deploy` and for the running server.
 2. **Apply migrations** (from `server/` so Prisma loads `server/.env`):
 
    ```bash
@@ -367,4 +366,4 @@ The app uses **PostgreSQL** only. [Neon](https://neon.tech) is a good fit (serve
 
 **Env file locations**: `npm run dev -w server` uses the **server** working directory, so Prisma and the app read `server/.env`. The README `cp .env server/.env` step keeps root and server copies aligned; `server/.env.example` lists the required variables.
 
-**If `npx neonctl@latest init` shows “connection strings found but could not be matched” or “.envEndpoint not found”:** that command mainly wires Neon’s **AI tooling** (MCP, Cursor/VS Code extension, agent skills). Its automatic `.env` injection does not always match Prisma layouts or placeholder URLs. You can **ignore that warning** for app connectivity: open the [Neon Console](https://console.neon.tech) → your project → **Connect**, copy the **pooled** URL into `DATABASE_URL` and the **direct** URL into `DIRECT_URL` in `server/.env`, then run `npx prisma migrate deploy` from `server/`. Alternatively use `neonctl connection-string` and paste the values manually.
+**If `npx neonctl@latest init` shows “connection strings found but could not be matched” or “.envEndpoint not found”:** that command mainly wires Neon’s **AI tooling** (MCP, Cursor/VS Code extension, agent skills). Its automatic `.env` injection does not always match Prisma layouts or placeholder URLs. You can **ignore that warning** for app connectivity: open the [Neon Console](https://console.neon.tech) → your project → **Connect**, copy the connection string into `DATABASE_URL` in `server/.env`, then run `npx prisma migrate deploy` from `server/`. Alternatively use `neonctl connection-string` and paste the value manually.

@@ -73,7 +73,7 @@ Zoom Momentum is a **Zoom Apps SDK** in-meeting side panel app for live college 
 
 **Mock transcript** ([`mock-transcript/src/index.ts`](mock-transcript/src/index.ts)) — 16 sample math lecture chunks, POSTs to `/api/transcript/segment` every 3 seconds, loops.
 
-**Database** — Prisma migrations target PostgreSQL (e.g. Neon); run `npx prisma migrate deploy` from `server/` with `DATABASE_URL` and `DIRECT_URL` set.
+**Database** — Prisma migrations target PostgreSQL (e.g. Neon); run `npx prisma migrate deploy` from `server/` with `DATABASE_URL` set.
 
 ---
 
@@ -135,7 +135,6 @@ ZOOM_CLIENT_SECRET=your_zoom_client_secret
 ZOOM_REDIRECT_URL=https://your-server-domain/api/auth/callback
 SESSION_SECRET=any-random-string
 DATABASE_URL=postgresql://USER:PASSWORD@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
-DIRECT_URL=postgresql://USER:PASSWORD@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
 OPENAI_API_KEY=your_openai_key
 OPENAI_BASE_URL=https://kiro.shitijmathur.tech/v1
 PORT=3001
@@ -223,7 +222,7 @@ zoom-momentum/
 - Combined: `npm run dev` (client + server) or `npm run dev:mock` (all three).
 
 ### Environment variables
-The server uses `dotenv/config` which loads `.env` from `process.cwd()`. When using npm workspaces (`npm run dev -w server`), the cwd is the **server directory**, so the `.env` with all variables (ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, ZOOM_REDIRECT_URL, SESSION_SECRET, OPENAI_API_KEY) must be in `server/.env`, not just the root `.env`. The root `.env` is only used if you run commands from the root directory directly. Prisma needs `DATABASE_URL` and `DIRECT_URL` (Neon pooled + direct, or the same string twice) in `server/.env`.
+The server uses `dotenv/config` which loads `.env` from `process.cwd()`. When using npm workspaces (`npm run dev -w server`), the cwd is the **server directory**, so the `.env` with all variables (ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, ZOOM_REDIRECT_URL, SESSION_SECRET, OPENAI_API_KEY) must be in `server/.env`, not just the root `.env`. The root `.env` is only used if you run commands from the root directory directly. Prisma needs `DATABASE_URL` in `server/.env` (same URL for migrations and runtime).
 
 ### Database
 PostgreSQL via Prisma (Neon supported). After install, run `cd server && npx prisma migrate deploy` against your database. See [README.md](README.md) **Database (Neon / PostgreSQL)**.
