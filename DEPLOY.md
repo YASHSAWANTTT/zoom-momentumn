@@ -38,14 +38,17 @@ Use your host’s secret/env UI instead of `--env-file` in production. Point HTT
 
 ## Option B: Railway
 
-1. New project → **Deploy from GitHub** (or CLI) with this repo.
-2. **Root directory:** repository root (where `package.json` lives).
-3. **Build command:** `npm ci && npm run build`
-4. **Start command:** `cd server && npx prisma migrate deploy && node dist/server.js`
-5. **Variables:** add all env vars above; set **Railway public URL** as `CLIENT_URL` (e.g. `https://your-app.up.railway.app`).
-6. Generate a **public domain** in Railway (HTTPS) and use that base URL in Zoom Marketplace.
+1. New project → **Deploy from GitHub** with this repo. Prefer **Dockerfile** as the builder (repo root).
+2. **Add PostgreSQL** (Railway → **New** → **Database** → **PostgreSQL**) *or* use an external DB (e.g. Neon).
+3. **Wire `DATABASE_URL` to this app service** — this is required or the container exits with a clear error:
+   - **Variables** → **New Variable** → **Reference** → choose your Postgres service → **`DATABASE_URL`**, *or*
+   - Paste the same connection string manually as `DATABASE_URL`.
+4. Add the rest: `ZOOM_*`, `SESSION_SECRET`, `CLIENT_URL` (your Railway HTTPS URL), `ZOOM_REDIRECT_URL`, etc.
+5. **Networking** → generate a **public domain**; set `CLIENT_URL` and `ZOOM_REDIRECT_URL` to that origin.
 
-**Note:** `@zoom/rtms` includes a native addon. If the build fails on Railway’s build image, use the **Dockerfile** deploy instead (Railway can build from `Dockerfile`).
+If logs show `Environment variable not found: DATABASE_URL`, the app service never received **`DATABASE_URL`** — fix Variables (reference or paste), redeploy.
+
+**Note:** `@zoom/rtms` includes a native addon. If a non-Docker build fails, use **Dockerfile** deploy from the repo root.
 
 ## Option C: Render / Fly.io / EC2
 

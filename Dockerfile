@@ -28,6 +28,8 @@ COPY --from=build /app/client/dist ./client/dist
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/prisma ./server/prisma
 COPY --from=build /app/server/package.json ./server/
+COPY server/docker-entrypoint.sh ./server/docker-entrypoint.sh
 WORKDIR /app/server
+RUN chmod +x docker-entrypoint.sh
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
