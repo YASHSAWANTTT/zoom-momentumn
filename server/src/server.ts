@@ -42,12 +42,23 @@ app.use(
 );
 
 
-// OWASP Security Headers
+// Security headers — must allow Zoom Apps SDK script + Zoom API/WebSocket for in-meeting panel
+const ZOOM_APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self' https://appssdk.zoom.us",
+  "script-src-elem 'self' https://appssdk.zoom.us",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.zoom.us https://*.zoom.com https://*.zoomdev.us wss://*.zoom.us wss://*.zoom.com wss://*.zoomdev.us",
+  'frame-ancestors https://*.zoom.us',
+].join('; ');
+
 app.use((_req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; frame-ancestors https://*.zoom.us");
+  res.setHeader('Content-Security-Policy', ZOOM_APP_CSP);
   next();
 });
 

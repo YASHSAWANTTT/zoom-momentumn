@@ -6,9 +6,11 @@ interface UseMessagingOptions {
   isHost: boolean;
   participantId: string;
   onMessage: (message: AppMessage) => void;
+  /** Wait for zoomSdk.config() to finish before connect() / onMessage — required by Zoom Apps SDK */
+  sdkReady: boolean;
 }
 
-export function useMessaging({ isHost, participantId, onMessage }: UseMessagingOptions) {
+export function useMessaging({ isHost, participantId, onMessage, sdkReady }: UseMessagingOptions) {
   const [connected, setConnected] = useState(false);
   const seqRef = useRef(0);
   const stateRef = useRef<AppState | null>(null);
@@ -20,6 +22,8 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
   }, [onMessage]);
 
   useEffect(() => {
+    if (!sdkReady) return;
+
     let mounted = true;
 
     const init = async () => {
@@ -114,7 +118,7 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
     return () => {
       mounted = false;
     };
-  }, [isHost, participantId]);
+  }, [isHost, participantId, sdkReady]);
 
   // Send a message (used by students for answers/responses)
   const send = useCallback(

@@ -30,6 +30,7 @@ export default function App() {
     isHost: zoom.isHost,
     participantId: zoom.participantId,
     onMessage: handleMessage,
+    sdkReady: zoom.isConfigured,
   });
 
   const pulseHost = usePulseHost({
