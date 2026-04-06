@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Zoom Momentum</title>
-    <!-- Zoom Apps SDK (required for in-client rendering) -->
-    <script src="https://appssdk.zoom.us/sdk.js"></script>
+    <!-- Same-origin copy of Zoom SDK (see scripts/fetch-zoom-sdk.mjs) — avoids blockers on appssdk.zoom.us -->
+    <script src="/zoom-sdk.js"></script>
   </head>
   <body>
     <div id="root"></div>

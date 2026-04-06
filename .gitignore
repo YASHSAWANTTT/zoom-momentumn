@@ -9,6 +9,9 @@ node_modules/
 *.db
 *.db-journal
 
+# Downloaded at build/dev time (see client/scripts/fetch-zoom-sdk.mjs)
+client/public/zoom-sdk.js
+
 # Build output
 client/dist/
 server/dist/
