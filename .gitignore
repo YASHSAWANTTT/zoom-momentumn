@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.db-journal
+
+# Build output
+client/dist/
+server/dist/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+server/prisma/migrations/
+
+# Logs
+*.log
+npm-debug.log*
+
+# POC experiments
+poc/
+
+# Large media files
+product-page/assets/*.mov
+product-page/assets/*.mp4
+
+# here.now state
+.herenow/
+product-page/assets/.herenow/
