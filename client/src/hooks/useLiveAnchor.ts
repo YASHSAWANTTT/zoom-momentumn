@@ -31,6 +31,9 @@ interface AnchorHostState {
   isPolling: boolean;
   lastPollTime: number;
   error: string | null;
+  /** Rolling transcript text (same buffer AI uses) — updated frequently while polling */
+  transcriptBuffer: string;
+  transcriptSegmentCount: number;
 }
 
 interface UseAnchorHostOptions {
@@ -39,7 +42,24 @@ interface UseAnchorHostOptions {
   isInZoom: boolean;
 }
 
-const POLL_INTERVAL_MS = 30_000; // 30 seconds
+const POLL_INTERVAL_MS = 30_000; // AI topic-segment interval
+const TRANSCRIPT_REFRESH_MS = 3_000; // show live text in the UI while AI is active
+
+async function fetchTranscriptBuffer(meetingId: string): Promise<{ buffer: string; segmentCount: number }> {
+  let bufferRes = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
+  let data = bufferRes.ok ? await bufferRes.json() : { buffer: '', segmentCount: 0 };
+  let buffer = typeof data.buffer === 'string' ? data.buffer : '';
+  const segmentCount = typeof data.segmentCount === 'number' ? data.segmentCount : 0;
+
+  // Only use mock data when this session is explicitly the mock meeting (demo / Mock toggle)
+  if ((!buffer || buffer.trim().length < 1) && meetingId === 'mock-meeting-001') {
+    bufferRes = await fetch('/api/transcript/buffer?meetingId=mock-meeting-001');
+    data = bufferRes.ok ? await bufferRes.json() : { buffer: '', segmentCount: 0 };
+    buffer = typeof data.buffer === 'string' ? data.buffer : '';
+  }
+
+  return { buffer, segmentCount };
+}
 
 export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostOptions) {
   const [state, setState] = useState<AnchorHostState>({
@@ -49,10 +69,27 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
     isPolling: false,
     lastPollTime: 0,
     error: null,
+    transcriptBuffer: '',
+    transcriptSegmentCount: 0,
   });
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const transcriptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollingRef = useRef(false); // guard against concurrent fetches
+
+  const refreshTranscriptOnly = useCallback(async () => {
+    if (!meetingId) return;
+    try {
+      const { buffer, segmentCount } = await fetchTranscriptBuffer(meetingId);
+      setState(prev => ({
+        ...prev,
+        transcriptBuffer: buffer,
+        transcriptSegmentCount: segmentCount,
+      }));
+    } catch {
+      // ignore
+    }
+  }, [meetingId]);
 
   const pollTranscript = useCallback(async () => {
     if (pollingRef.current) return;
@@ -60,20 +97,18 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
     pollingRef.current = true;
 
     try {
-      // 1. Fetch the rolling transcript buffer (try real meetingId, fall back to mock)
-      let bufferRes = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
-      let { buffer } = bufferRes.ok ? await bufferRes.json() : { buffer: '' };
+      // 1. Fetch the rolling transcript buffer (real meeting only — no mock mixing)
+      const { buffer, segmentCount } = await fetchTranscriptBuffer(meetingId);
 
-      if (!buffer || buffer.trim().length < 20) {
-        // Fall back to mock transcript for dev/testing
-        bufferRes = await fetch('/api/transcript/buffer?meetingId=mock-meeting-001');
-        const fallback = bufferRes.ok ? await bufferRes.json() : { buffer: '' };
-        buffer = fallback.buffer;
-      }
+      setState(prev => ({
+        ...prev,
+        transcriptBuffer: buffer,
+        transcriptSegmentCount: segmentCount,
+      }));
 
       if (!buffer || buffer.trim().length < 20) {
         pollingRef.current = false;
-        return; // not enough transcript yet
+        return; // not enough transcript yet for AI
       }
 
       // 2. Get current topic title for context
@@ -196,15 +231,21 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
       console.log(`[anchor] RTMS start ${ok ? 'succeeded' : 'failed (will poll anyway)'}`);
     }
 
-    // Poll immediately, then on interval
+    void refreshTranscriptOnly();
+    transcriptTimerRef.current = setInterval(refreshTranscriptOnly, TRANSCRIPT_REFRESH_MS);
+
     pollTranscript();
     timerRef.current = setInterval(pollTranscript, POLL_INTERVAL_MS);
-  }, [pollTranscript, isInZoom]);
+  }, [pollTranscript, isInZoom, refreshTranscriptOnly]);
 
   const stopPolling = useCallback(async () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (transcriptTimerRef.current) {
+      clearInterval(transcriptTimerRef.current);
+      transcriptTimerRef.current = null;
     }
     setState(prev => ({ ...prev, isPolling: false }));
 
@@ -218,6 +259,7 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (transcriptTimerRef.current) clearInterval(transcriptTimerRef.current);
     };
   }, []);
 
@@ -230,6 +272,8 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
       isPolling: false,
       lastPollTime: 0,
       error: null,
+      transcriptBuffer: '',
+      transcriptSegmentCount: 0,
     });
   }, [stopPolling]);
 
@@ -240,6 +284,8 @@ export function useAnchorHost({ broadcast, meetingId, isInZoom }: UseAnchorHostO
     isPolling: state.isPolling,
     lastPollTime: state.lastPollTime,
     error: state.error,
+    transcriptBuffer: state.transcriptBuffer,
+    transcriptSegmentCount: state.transcriptSegmentCount,
     startPolling,
     stopPolling,
     pollTranscript, // manual trigger

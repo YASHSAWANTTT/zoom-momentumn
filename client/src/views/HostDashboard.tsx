@@ -54,6 +54,8 @@ interface HostDashboardProps {
   anchorGlossary: GlossaryEntry[];
   anchorIsPolling: boolean;
   anchorError: string | null;
+  anchorTranscriptBuffer: string;
+  anchorTranscriptSegmentCount: number;
   meetingId: string;
   isInZoom: boolean;
   useMockTranscript: boolean;
@@ -99,6 +101,8 @@ export function HostDashboard({
   anchorGlossary,
   anchorIsPolling,
   anchorError,
+  anchorTranscriptBuffer,
+  anchorTranscriptSegmentCount,
   meetingId,
   isInZoom,
   useMockTranscript,
@@ -252,20 +256,31 @@ export function HostDashboard({
             {anchorError && (
               <p style={{ color: 'var(--zoom-error)', fontSize: 12 }}>{anchorError}</p>
             )}
-            <Timeline topics={anchorTopics} currentTopicId={anchorCurrentTopicId} />
-            {anchorGlossary.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                <GlossaryTab glossary={anchorGlossary} />
-              </div>
-            )}
             {meetingId && (
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 4, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--zoom-text-secondary)', marginBottom: 6 }}>
+                  Live transcript
+                </div>
                 <TranscriptTab
                   meetingId={meetingId}
                   glossary={anchorGlossary}
                   topics={anchorTopics}
                   currentTopicId={anchorCurrentTopicId}
+                  hostLiveFeed={
+                    anchorIsPolling
+                      ? { buffer: anchorTranscriptBuffer, segmentCount: anchorTranscriptSegmentCount }
+                      : undefined
+                  }
                 />
+              </div>
+            )}
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--zoom-text-secondary)', marginBottom: 6 }}>
+              Topic timeline (AI)
+            </div>
+            <Timeline topics={anchorTopics} currentTopicId={anchorCurrentTopicId} />
+            {anchorGlossary.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <GlossaryTab glossary={anchorGlossary} />
               </div>
             )}
           </div>

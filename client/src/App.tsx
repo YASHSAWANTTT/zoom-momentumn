@@ -333,6 +333,8 @@ export default function App() {
         anchorGlossary={anchorHost.glossary}
         anchorIsPolling={anchorHost.isPolling}
         anchorError={anchorHost.error}
+        anchorTranscriptBuffer={anchorHost.transcriptBuffer}
+        anchorTranscriptSegmentCount={anchorHost.transcriptSegmentCount}
         onAnchorStartPolling={anchorHost.startPolling}
         onAnchorStopPolling={anchorHost.stopPolling}
         meetingId={anchorMeetingId}

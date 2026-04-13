@@ -6,40 +6,45 @@ interface TranscriptTabProps {
   glossary: GlossaryEntry[];
   topics: Topic[];
   currentTopicId: string;
+  /** When host has Anchor AI running, parent pushes the same buffer the AI uses (faster than polling here). */
+  hostLiveFeed?: { buffer: string; segmentCount: number };
 }
 
-export function TranscriptTab({ meetingId, glossary, topics, currentTopicId }: TranscriptTabProps) {
+export function TranscriptTab({ meetingId, glossary, topics, currentTopicId, hostLiveFeed }: TranscriptTabProps) {
   const [transcript, setTranscript] = useState('');
   const [segmentCount, setSegmentCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const controlled = hostLiveFeed !== undefined;
+
   useEffect(() => {
-    if (!meetingId) return;
+    if (!meetingId || controlled) return;
 
     const fetchBuffer = async () => {
       try {
         const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.buffer) {
-          setTranscript(data.buffer);
-          setSegmentCount(data.segmentCount);
-        }
+        setTranscript(typeof data.buffer === 'string' ? data.buffer : '');
+        setSegmentCount(typeof data.segmentCount === 'number' ? data.segmentCount : 0);
       } catch {
         // silent
       }
     };
 
     fetchBuffer();
-    const interval = setInterval(fetchBuffer, 10_000);
+    const interval = setInterval(fetchBuffer, 5_000);
     return () => clearInterval(interval);
-  }, [meetingId]);
+  }, [meetingId, controlled]);
+
+  const displayText = controlled ? hostLiveFeed!.buffer : transcript;
+  const displayCount = controlled ? hostLiveFeed!.segmentCount : segmentCount;
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcript]);
+  }, [transcript, displayText]);
 
   if (!meetingId) {
     return (
@@ -49,10 +54,13 @@ export function TranscriptTab({ meetingId, glossary, topics, currentTopicId }: T
     );
   }
 
-  if (!transcript) {
+  if (!displayText?.trim()) {
     return (
       <div style={{ padding: 16, textAlign: 'center', color: 'var(--zoom-text-secondary)', fontSize: 13 }}>
-        Waiting for transcript data…
+        <div style={{ marginBottom: 8 }}>Waiting for transcript data…</div>
+        <div style={{ fontSize: 11, lineHeight: 1.4 }}>
+          After you start AI, text appears here as RTMS captures speech (usually a few seconds after people talk).
+        </div>
       </div>
     );
   }
@@ -118,7 +126,7 @@ export function TranscriptTab({ meetingId, glossary, topics, currentTopicId }: T
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <span style={{ fontSize: 11, color: 'var(--zoom-text-secondary)' }}>
-          {segmentCount} segments — updates every 10s
+          {displayCount} segments — {controlled ? 'live while AI is on' : 'updates every 5s'}
         </span>
       </div>
 
@@ -136,7 +144,7 @@ export function TranscriptTab({ meetingId, glossary, topics, currentTopicId }: T
           borderRadius: 6,
           border: '1px solid var(--zoom-border, #e0e0e0)',
         }}
-        dangerouslySetInnerHTML={{ __html: highlightTerms(transcript, glossaryTerms) }}
+        dangerouslySetInnerHTML={{ __html: highlightTerms(displayText, glossaryTerms) }}
       />
     </div>
   );
