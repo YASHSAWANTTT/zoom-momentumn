@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import crypto from 'crypto';
 import { config } from '../config.js';
 import {
@@ -37,7 +37,16 @@ function getWebhookVerificationSecrets(): string[] {
   return Array.from(set);
 }
 
-function verifyWebhookSignature(req: { headers: Record<string, any>; body: any }): boolean {
+/** Zoom signs `v0:{ts}:{body}` where `body` is the raw POST bytes, not JSON.stringify(parsed). */
+function getSignedWebhookBodyString(req: Request): string {
+  const raw = req.rawBody;
+  if (Buffer.isBuffer(raw) && raw.length > 0) {
+    return raw.toString('utf8');
+  }
+  return JSON.stringify(req.body ?? {});
+}
+
+function verifyWebhookSignature(req: Request): boolean {
   const signature = req.headers['x-zm-signature'] as string | undefined;
   const timestamp = req.headers['x-zm-request-timestamp'] as string | undefined;
 
@@ -52,7 +61,8 @@ function verifyWebhookSignature(req: { headers: Record<string, any>; body: any }
     return false;
   }
 
-  const message = `v0:${timestamp}:${JSON.stringify(req.body)}`;
+  const bodyStr = getSignedWebhookBodyString(req);
+  const message = `v0:${timestamp}:${bodyStr}`;
 
   for (const secret of getWebhookVerificationSecrets()) {
     const expectedSignature =
@@ -153,8 +163,9 @@ rtmsRouter.get('/health', (_req, res) => {
     note:
       'Transcript DB fills only after Zoom delivers meeting.rtms_started to POST /api/rtms/webhook and captions flow over RTMS. The in-meeting startRTMS() API alone does not write segments.',
     checklist: [
-      'Marketplace → Feature → Event subscriptions: add RTMS events (e.g. meeting.rtms_started / meeting.rtms_stopped) for this app; Event notification endpoint URL must be https://YOUR_HOST/api/rtms/webhook',
-      'If activeSessions stays 0 after speaking, open Railway logs and confirm [rtms] Webhook received: meeting.rtms_started — if absent, Zoom is not posting (wrong URL, no subscription, or validation failed)',
+      'Marketplace → Feature → Event subscriptions: add RTMS events (e.g. meeting.rtms_started / meeting.rtms_stopped); Event notification endpoint URL must be https://YOUR_HOST/api/rtms/webhook',
+      'If Railway logs show 401 on /api/rtms/webhook, HMAC used the wrong secret or (before this fix) re-serialized JSON — set ZOOM_SECRET_TOKEN to the app Secret Token; signing uses the raw POST body',
+      'If activeSessions stays 0, confirm logs show [rtms] Webhook received: meeting.rtms_started after you speak — if absent, Zoom is not delivering (wrong URL, no subscription, or validation never completed)',
     ],
   });
 });

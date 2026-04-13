@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request } from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import path from 'path';
@@ -18,7 +18,14 @@ app.set('etag', false);
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+// Capture raw body: Zoom webhook HMAC is v0:{timestamp}:{RAW_BODY} — JSON.stringify(req.body) breaks verification
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as Request).rawBody = Buffer.from(buf);
+    },
+  }),
+);
 app.use(
   session({
     secret: config.session.secret,
