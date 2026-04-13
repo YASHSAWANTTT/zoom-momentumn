@@ -4,45 +4,36 @@ import type { AppMessage, AppState, MessageType } from '../types/messages';
 interface UseMessagingOptions {
   isHost: boolean;
   participantId: string;
+  /** From Zoom SDK (or demo id); may be '' until config completes. */
+  meetingId: string;
   onMessage: (message: AppMessage) => void;
 }
 
-export function useMessaging({ isHost, participantId, onMessage }: UseMessagingOptions) {
+export function useMessaging({ isHost, participantId, meetingId, onMessage }: UseMessagingOptions) {
   const [connected, setConnected] = useState(false);
   const seqRef = useRef(0);
   const stateRef = useRef<AppState | null>(null);
   const onMessageRef = useRef(onMessage);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const meetingIdRef = useRef('');
 
   useEffect(() => {
     onMessageRef.current = onMessage;
   }, [onMessage]);
 
-  // Extract meetingId from URL params (demo mode) or wait for it to be set
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const demoMeetingId = params.get('demo') === '1' ? 'mock-meeting-001' : '';
-    if (demoMeetingId) {
-      meetingIdRef.current = demoMeetingId;
-    }
-  }, []);
-
   const connectWs = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const isDemoMode = params.get('demo') === '1';
-    const meetingId = meetingIdRef.current || (isDemoMode ? 'mock-meeting-001' : '');
+    const urlDemo = params.get('demo') === '1';
+    const effectiveMeetingId = meetingId || (urlDemo ? 'mock-meeting-001' : '');
 
-    if (!meetingId) {
-      console.log('[useMessaging] No meetingId yet, deferring connection');
+    if (!effectiveMeetingId) {
       return;
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const role = isHost ? 'host' : 'student';
-    const url = `${protocol}//${host}/ws?meetingId=${encodeURIComponent(meetingId)}&role=${role}&participantId=${encodeURIComponent(participantId || 'anon')}`;
+    const url = `${protocol}//${host}/ws?meetingId=${encodeURIComponent(effectiveMeetingId)}&role=${role}&participantId=${encodeURIComponent(participantId || 'anon')}`;
 
     console.log(`[useMessaging] Connecting to ${url}`);
     const ws = new WebSocket(url);
@@ -126,18 +117,7 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
     ws.onerror = (err) => {
       console.error('[useMessaging] WebSocket error:', err);
     };
-  }, [isHost, participantId]);
-
-  // Set meetingId from Zoom SDK and connect
-  const setMeetingId = useCallback((id: string) => {
-    if (id && id !== meetingIdRef.current) {
-      meetingIdRef.current = id;
-      // If not connected yet, connect now
-      if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-        connectWs();
-      }
-    }
-  }, [connectWs]);
+  }, [isHost, participantId, meetingId]);
 
   useEffect(() => {
     connectWs();
@@ -189,5 +169,5 @@ export function useMessaging({ isHost, participantId, onMessage }: UseMessagingO
     stateRef.current = newState;
   }, []);
 
-  return { connected, send, broadcast, setState, setMeetingId };
+  return { connected, send, broadcast, setState };
 }

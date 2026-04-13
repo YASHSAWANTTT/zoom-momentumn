@@ -38,15 +38,9 @@ export default function App() {
   const messaging = useMessaging({
     isHost,
     participantId: zoom.participantId || (demo.isDemoMode ? `demo-${demoRole}` : ''),
+    meetingId,
     onMessage: handleMessage,
   });
-
-  // Update WebSocket meetingId when it becomes available
-  useEffect(() => {
-    if (meetingId) {
-      messaging.setMeetingId(meetingId);
-    }
-  }, [meetingId, messaging.setMeetingId]);
 
   const pulseHost = usePulseHost({ broadcast: messaging.broadcast });
   const pulseStudent = usePulseStudent({ send: messaging.send });
