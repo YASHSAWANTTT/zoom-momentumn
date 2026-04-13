@@ -72,8 +72,8 @@ app.get('*', (_req, res) => {
 const httpServer = createServer(app);
 initWebSocketServer(httpServer);
 
-httpServer.listen(config.port, () => {
-  console.log(`[server] running on http://localhost:${config.port}`);
+httpServer.listen(config.port, '0.0.0.0', () => {
+  console.log(`[server] listening on ${config.port} (0.0.0.0)`);
 });
 
 // Graceful shutdown — close RTMS sessions
