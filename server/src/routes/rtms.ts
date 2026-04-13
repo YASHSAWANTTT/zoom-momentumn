@@ -6,6 +6,12 @@ import {
   stopRTMSSession,
   getActiveSessions,
 } from '../services/rtms-ingest.js';
+import {
+  extractRtmsMeetingUuid,
+  extractRtmsStartPayload,
+  isRtmsStartedEvent,
+  isRtmsStoppedEvent,
+} from '../services/rtms-payload.js';
 
 export const rtmsRouter = Router();
 
@@ -80,7 +86,9 @@ rtmsRouter.post('/webhook', async (req, res) => {
 
   // --- Verify HMAC for all other events ---
   if (!verifyWebhookSignature(req)) {
-    console.error('[rtms] Webhook signature verification failed');
+    console.error(
+      '[rtms] Webhook signature verification failed — set ZOOM_SECRET_TOKEN to your app’s Secret Token from Zoom Marketplace (or verify ZOOM_CLIENT_SECRET matches)',
+    );
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
@@ -88,21 +96,27 @@ rtmsRouter.post('/webhook', async (req, res) => {
   // Acknowledge immediately so Zoom doesn't retry
   res.status(200).json({ status: 'accepted' });
 
-  console.log(`[rtms] Webhook received: ${event}`);
+  const eventName = typeof event === 'string' ? event : '';
+  console.log(`[rtms] Webhook received: ${eventName}`);
 
   try {
-    switch (event) {
-      case 'meeting.rtms_started':
-        await startRTMSSession(payload);
-        break;
-
-      case 'meeting.rtms_stopped':
-        await stopRTMSSession(payload?.meeting_uuid);
-        break;
-
-      default:
-        console.log(`[rtms] Unhandled webhook event: ${event}`);
+    if (isRtmsStartedEvent(eventName)) {
+      const start = extractRtmsStartPayload(payload);
+      if (!start) {
+        console.error('[rtms] meeting.rtms_started missing fields; payload keys:', payload && typeof payload === 'object' ? Object.keys(payload as object) : []);
+        return;
+      }
+      await startRTMSSession(start);
+      return;
     }
+
+    if (isRtmsStoppedEvent(eventName)) {
+      const uuid = extractRtmsMeetingUuid(payload);
+      await stopRTMSSession(uuid ?? '');
+      return;
+    }
+
+    console.log(`[rtms] Unhandled webhook event: ${eventName}`);
   } catch (error) {
     console.error('[rtms] Webhook handler error:', error);
   }
@@ -118,5 +132,7 @@ rtmsRouter.get('/health', (_req, res) => {
     status: 'ok',
     activeSessions: sessions.size,
     meetings: Array.from(sessions.keys()),
+    note:
+      'Transcript DB fills only after Zoom delivers meeting.rtms_started to POST /api/rtms/webhook and captions flow over RTMS. The in-meeting startRTMS() API alone does not write segments.',
   });
 });

@@ -20,6 +20,8 @@ interface RTMSStartPayload {
   meeting_uuid: string;
   rtms_stream_id: string;
   server_urls: string;
+  /** From webhook — optional if client + secret are used for signing */
+  signature?: string;
   operator_id?: string;
 }
 
@@ -49,7 +51,7 @@ export function getActiveSessions(): Map<string, ActiveSession> {
 // ---------------------------------------------------------------------------
 
 export async function startRTMSSession(payload: RTMSStartPayload): Promise<void> {
-  const { meeting_uuid, rtms_stream_id, server_urls, operator_id } = payload;
+  const { meeting_uuid, rtms_stream_id, server_urls, operator_id, signature: webhookSignature } = payload;
 
   console.log(`[rtms-ingest] Starting RTMS session for meeting ${meeting_uuid}`);
 
@@ -141,8 +143,10 @@ export async function startRTMSSession(payload: RTMSStartPayload): Promise<void>
       meeting_uuid,
       rtms_stream_id,
       server_urls,
+      ...(webhookSignature ? { signature: webhookSignature } : {}),
       client: config.zoom.clientId,
       secret: config.zoom.clientSecret,
+      pollInterval: 10,
     });
     console.log(`[rtms-ingest] Join result: ${result}`);
   } catch (error) {
@@ -194,8 +198,19 @@ async function storeSegment(
     return;
   }
 
-  await prisma.transcriptSegment.create({
-    data: {
+  await prisma.transcriptSegment.upsert({
+    where: {
+      meetingId_seqNo: {
+        meetingId,
+        seqNo: BigInt(seqNo),
+      },
+    },
+    update: {
+      speaker: data.speaker,
+      text: data.text,
+      timestamp: BigInt(data.timestamp ?? Date.now()),
+    },
+    create: {
       meetingId,
       speaker: data.speaker,
       text: data.text,
