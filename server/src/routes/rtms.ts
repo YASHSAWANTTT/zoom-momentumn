@@ -17,6 +17,9 @@ export const rtmsRouter = Router();
 
 // ---------------------------------------------------------------------------
 // Webhook HMAC signature verification
+// Zoom signs with the app Secret Token (Marketplace). Arlo also accepts
+// ZOOM_CLIENT_SECRET — we try every distinct configured secret so a mis-set
+// ZOOM_SECRET_TOKEN does not block RTMS if the client secret matches.
 // ---------------------------------------------------------------------------
 
 function getRtmsSecret(): string {
@@ -24,9 +27,17 @@ function getRtmsSecret(): string {
   return token && token.trim().length > 0 ? token : config.zoom.clientSecret;
 }
 
-function verifyWebhookSignature(req: { headers: Record<string, any>; body: any }): boolean {
-  const secret = getRtmsSecret();
+/** Distinct secrets used only for verifying signed webhook deliveries (not for URL validation). */
+function getWebhookVerificationSecrets(): string[] {
+  const token = config.zoom_secret_token?.trim();
+  const cs = config.zoom.clientSecret;
+  const set = new Set<string>();
+  if (token) set.add(token);
+  set.add(cs);
+  return Array.from(set);
+}
 
+function verifyWebhookSignature(req: { headers: Record<string, any>; body: any }): boolean {
   const signature = req.headers['x-zm-signature'] as string | undefined;
   const timestamp = req.headers['x-zm-request-timestamp'] as string | undefined;
 
@@ -42,19 +53,25 @@ function verifyWebhookSignature(req: { headers: Record<string, any>; body: any }
   }
 
   const message = `v0:${timestamp}:${JSON.stringify(req.body)}`;
-  const expectedSignature =
-    'v0=' +
-    crypto.createHmac('sha256', secret).update(message).digest('hex');
 
-  // Constant-time comparison to prevent timing attacks
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature),
-    );
-  } catch {
-    return false;
+  for (const secret of getWebhookVerificationSecrets()) {
+    const expectedSignature =
+      'v0=' +
+      crypto.createHmac('sha256', secret).update(message).digest('hex');
+    try {
+      if (
+        crypto.timingSafeEqual(
+          Buffer.from(signature),
+          Buffer.from(expectedSignature),
+        )
+      ) {
+        return true;
+      }
+    } catch {
+      // length mismatch — try next secret
+    }
   }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +104,7 @@ rtmsRouter.post('/webhook', async (req, res) => {
   // --- Verify HMAC for all other events ---
   if (!verifyWebhookSignature(req)) {
     console.error(
-      '[rtms] Webhook signature verification failed — set ZOOM_SECRET_TOKEN to your app’s Secret Token from Zoom Marketplace (or verify ZOOM_CLIENT_SECRET matches)',
+      `[rtms] Webhook signature verification failed (tried ${getWebhookVerificationSecrets().length} secret(s)) — set ZOOM_SECRET_TOKEN to the Secret Token from Zoom Marketplace Developer → Features → Webhooks, or ensure ZOOM_CLIENT_SECRET matches the signing key Zoom uses`,
     );
     res.status(401).json({ error: 'Unauthorized' });
     return;
@@ -132,7 +149,12 @@ rtmsRouter.get('/health', (_req, res) => {
     status: 'ok',
     activeSessions: sessions.size,
     meetings: Array.from(sessions.keys()),
+    webhookSecretCandidates: getWebhookVerificationSecrets().length,
     note:
       'Transcript DB fills only after Zoom delivers meeting.rtms_started to POST /api/rtms/webhook and captions flow over RTMS. The in-meeting startRTMS() API alone does not write segments.',
+    checklist: [
+      'Marketplace → Feature → Event subscriptions: add RTMS events (e.g. meeting.rtms_started / meeting.rtms_stopped) for this app; Event notification endpoint URL must be https://YOUR_HOST/api/rtms/webhook',
+      'If activeSessions stays 0 after speaking, open Railway logs and confirm [rtms] Webhook received: meeting.rtms_started — if absent, Zoom is not posting (wrong URL, no subscription, or validation failed)',
+    ],
   });
 });
