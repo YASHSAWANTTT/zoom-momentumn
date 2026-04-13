@@ -7,9 +7,11 @@ interface UseZoomEventsOptions {
   isHost: boolean;
   broadcast: (type: MessageType, payload: unknown) => void;
   onMeetingEnd: () => void;
+  /** Wait until zoomSdk.config() has finished — registering listeners earlier triggers SDK warnings. */
+  zoomSdkReady: boolean;
 }
 
-export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEventsOptions) {
+export function useZoomEvents({ isHost, broadcast, onMeetingEnd, zoomSdkReady }: UseZoomEventsOptions) {
   const [meetingEnded, setMeetingEnded] = useState(false);
   const [lateJoinInfo, setLateJoinInfo] = useState<{ topicCount: number; latestTopic: string } | null>(null);
   const [activeSpeaker, setActiveSpeaker] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEvents
   // Meeting end detection:
   // Use zoomSdk.onRunningContextChange() to detect leaving the meeting
   useEffect(() => {
+    if (!zoomSdk || !zoomSdkReady) return;
     try {
       zoomSdk.onRunningContextChange((event: { runningContext: string }) => {
         if (event.runningContext !== 'inMeeting' && event.runningContext !== 'inWebinar') {
@@ -41,12 +44,12 @@ export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEvents
     } catch {
       // Not in Zoom context (dev mode)
     }
-  }, [onMeetingEnd]);
+  }, [onMeetingEnd, zoomSdkReady]);
 
   // Active speaker tracking (host only):
   // When active speaker changes, broadcast SPEAKER_SPOTLIGHT
   useEffect(() => {
-    if (!isHost) return;
+    if (!isHost || !zoomSdk || !zoomSdkReady) return;
     try {
       zoomSdk.onActiveSpeakerChange((event: any) => {
         const speaker = event.users?.[0];
@@ -62,7 +65,7 @@ export function useZoomEvents({ isHost, broadcast, onMeetingEnd }: UseZoomEvents
     } catch {
       // Not in Zoom context
     }
-  }, [isHost, broadcast]);
+  }, [isHost, broadcast, zoomSdkReady]);
 
   const dismissLateJoinInfo = useCallback(() => setLateJoinInfo(null), []);
 

@@ -156,8 +156,19 @@ export async function stopRTMS(): Promise<boolean> {
     await zoomSdk.callZoomApi('stopRTMS', {});
     console.log('[useZoomSdk] RTMS stopped');
     return true;
-  } catch (err) {
-    console.error('[useZoomSdk] stopRTMS failed:', err);
+  } catch (err: any) {
+    const code = err?.code ?? err?.errorCode ?? '';
+    const msg = String(err?.message ?? err ?? '');
+    // Zoom often returns a generic client error when RTMS was never started or already stopped — treat as OK for UI state
+    const benign =
+      code === '10309' ||
+      /not\s*running|already\s*stopped|no\s*active|nothing\s*to\s*stop/i.test(msg) ||
+      /Zoom client encountered an error while processing the request/i.test(msg);
+    if (benign) {
+      console.log('[useZoomSdk] stopRTMS: no-op (inactive or client could not stop — safe to ignore)');
+      return true;
+    }
+    console.warn('[useZoomSdk] stopRTMS failed:', err);
     return false;
   }
 }

@@ -63,6 +63,7 @@ export default function App() {
     isHost,
     broadcast: messaging.broadcast,
     onMeetingEnd: handleMeetingEnd,
+    zoomSdkReady: !demo.isDemoMode && zoom.isConfigured,
   });
 
   useEffect(() => {
