@@ -50,7 +50,9 @@ export function ArenaHost({
     if (meetingId) {
       setFetchingTranscript(true);
       try {
-        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
+        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`, {
+          cache: 'no-store',
+        });
         if (res.ok) {
           const data = await res.json();
           transcript = data.buffer || '';
@@ -65,7 +67,9 @@ export function ArenaHost({
     let transcript = '';
     if (meetingId) {
       try {
-        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
+        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`, {
+          cache: 'no-store',
+        });
         if (res.ok) {
           const data = await res.json();
           transcript = data.buffer || '';

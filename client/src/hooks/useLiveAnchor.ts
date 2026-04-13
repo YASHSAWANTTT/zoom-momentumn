@@ -46,14 +46,16 @@ const POLL_INTERVAL_MS = 30_000; // AI topic-segment interval
 const TRANSCRIPT_REFRESH_MS = 3_000; // show live text in the UI while AI is active
 
 async function fetchTranscriptBuffer(meetingId: string): Promise<{ buffer: string; segmentCount: number }> {
-  let bufferRes = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
+  let bufferRes = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`, {
+    cache: 'no-store',
+  });
   let data = bufferRes.ok ? await bufferRes.json() : { buffer: '', segmentCount: 0 };
   let buffer = typeof data.buffer === 'string' ? data.buffer : '';
   const segmentCount = typeof data.segmentCount === 'number' ? data.segmentCount : 0;
 
   // Only use mock data when this session is explicitly the mock meeting (demo / Mock toggle)
   if ((!buffer || buffer.trim().length < 1) && meetingId === 'mock-meeting-001') {
-    bufferRes = await fetch('/api/transcript/buffer?meetingId=mock-meeting-001');
+    bufferRes = await fetch('/api/transcript/buffer?meetingId=mock-meeting-001', { cache: 'no-store' });
     data = bufferRes.ok ? await bufferRes.json() : { buffer: '', segmentCount: 0 };
     buffer = typeof data.buffer === 'string' ? data.buffer : '';
   }

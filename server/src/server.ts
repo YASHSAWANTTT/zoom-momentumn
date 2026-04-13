@@ -13,6 +13,8 @@ import { shutdownAllSessions } from './services/rtms-ingest.js';
 import { initWebSocketServer } from './services/websocket.js';
 
 const app = express();
+// Avoid 304 + empty body on repeated GET /api/* JSON — breaks fetch().json() for live polling (e.g. transcript buffer)
+app.set('etag', false);
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
@@ -47,6 +49,14 @@ app.use((_req, res, next) => {
     "frame-src 'self' appssdk.zoom.us",
     "frame-ancestors https://*.zoom.us https://*.zoomgov.com",
   ].join('; '));
+  next();
+});
+
+app.use((req, res, next) => {
+  if (req.originalUrl.split('?')[0].startsWith('/api')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+  }
   next();
 });
 

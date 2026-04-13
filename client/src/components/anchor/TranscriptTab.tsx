@@ -22,7 +22,9 @@ export function TranscriptTab({ meetingId, glossary, topics, currentTopicId, hos
 
     const fetchBuffer = async () => {
       try {
-        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`);
+        const res = await fetch(`/api/transcript/buffer?meetingId=${encodeURIComponent(meetingId)}`, {
+          cache: 'no-store',
+        });
         if (!res.ok) return;
         const data = await res.json();
         setTranscript(typeof data.buffer === 'string' ? data.buffer : '');
