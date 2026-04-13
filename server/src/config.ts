@@ -1,8 +1,12 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Load .env from project root (parent of server/)
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const serverDistDir = path.dirname(fileURLToPath(import.meta.url));
+/** Monorepo root (parent of `server/`) — valid from compiled `dist/*.js` under ESM */
+export const repoRoot = path.resolve(serverDistDir, '../..');
+
+dotenv.config({ path: path.join(repoRoot, '.env') });
 
 function required(key: string): string {
   const value = process.env[key];

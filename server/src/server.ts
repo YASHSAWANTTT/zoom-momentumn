@@ -3,7 +3,7 @@ import cors from 'cors';
 import session from 'express-session';
 import path from 'path';
 import { createServer } from 'http';
-import { config } from './config.js';
+import { config, repoRoot } from './config.js';
 import { authRouter } from './routes/auth.js';
 import { aiRouter } from './routes/ai.js';
 import { transcriptRouter } from './routes/transcript.js';
@@ -63,7 +63,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Serve production client build (if dist exists)
-const clientDist = path.resolve(__dirname, '../../client/dist');
+const clientDist = path.join(repoRoot, 'client/dist');
 app.use(express.static(clientDist));
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
